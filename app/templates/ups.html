@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check UPS Pension Status</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #f8f9fa;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: 250px;
+      background-color: #343a40;
+      color: white;
+      padding: 1rem;
+      height: 100vh;
+      position: fixed;
+    }
+    .sidebar h2 {
+      color: #fff;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .sidebar a {
+      display: block;
+      color: white;
+      padding: 0.75rem;
+      text-decoration: none;
+      margin-bottom: 0.5rem;
+      background-color: #007bff;
+      border-radius: 4px;
+    }
+    .sidebar a:hover {
+      background-color: #0056b3;
+    }
+    /* Main Content Area */
+    .content {
+      margin-left: 250px;
+      padding: 2rem;
+      width: 100%;
+    }
+    .card {
+      background-color: #fff;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background-color: #6c757d;
+    }
+    .status-box {
+      margin-top: 1rem;
+      background-color: #e9ecef;
+      padding: 1rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>Pension Status</h2>
+    <a href="{{ url_for('nps') }}">Check NPS Status</a>
+    <a href="{{ url_for('ups') }}">Check UPS Status</a>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="content">
+    <!-- UPS Form -->
+    <div class="card">
+      <h2>Check UPS Pension Status</h2>
+      <div class="form-group">
+        <label for="pran_ups">PRAN Number</label>
+        <input type="text" id="pran_ups" placeholder="Enter 12 digit PRAN Number">
+      </div>
+      <div class="form-group">
+        <label for="dob_ups">Date of Birth</label>
+        <input type="date" id="dob_ups">
+      </div>
+      <div class="form-group">
+        <label for="mobile_number_ups">Registered Mobile Number</label>
+        <input type="tel" id="mobile_number_ups" pattern="[0-9]{10}" placeholder="Enter 10 digit Mobile Number">
+      </div>
+      <div class="form-group">
+        <label for="department_ups">Department / Treasury Details</label>
+        <input type="text" id="department_ups">
+      </div>
+      <div class="form-group">
+        <label for="employee_id_ups">Employee ID</label>
+        <input type="text" id="employee_id_ups" placeholder="Enter your Employee ID">
+      </div>
+      <div class="form-group">
+        <label for="bank_account_ups">Bank Account Number</label>
+        <input type="text" id="bank_account_ups" placeholder="Enter Bank Account Number">
+      </div>
+      <button id="checkBtnUPS">Check UPS Status</button>
+      <div id="statusUPS" class="status-box" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('checkBtnUPS').addEventListener('click', async () => {
+      const pran = document.getElementById('pran_ups').value;
+      const dob = document.getElementById('dob_ups').value;
+      const mobile_number = document.getElementById('mobile_number_ups').value;
+      const department = document.getElementById('department_ups').value;
+      const employee_id = document.getElementById('employee_id_ups').value;
+      const bank_account = document.getElementById('bank_account_ups').value;
+      const statusDiv = document.getElementById('statusUPS');
+      const button = document.getElementById('checkBtnUPS');
+
+      // Validation for required fields
+      if (!pran || !dob || !mobile_number || !department || !employee_id || !bank_account) {
+        alert('Please fill in all the fields.');
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = 'Checking...';
+
+      try {
+        const response = await fetch('/api/check-ups-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ pran, dob, mobile_number, department, employee_id, bank_account })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          statusDiv.textContent = JSON.stringify(data, null, 2);
+          statusDiv.style.display = 'block';
+        } else {
+          alert(data.message || 'Error fetching status');
+        }
+      } catch (error) {
+        alert('Server error. Please try again later.');
+      }
+
+      button.disabled = false;
+      button.textContent = 'Check UPS Status';
+    });
+  </script>
+</body>
+</html>

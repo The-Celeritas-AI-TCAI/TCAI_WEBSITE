@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block styles %}
+    {{ super() }}  <!-- This preserves Bootstrap CSS -->
+    <style>
+        body {
+            background-image: url("{{ url_for('static', filename='images/img_1.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        
+        .card {
+            backdrop-filter: blur(10px);
+            background-color: rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.4);
+        }
+        
+        .card-body h2 {
+            color: white;
+        }
+        
+        .card-body {
+            color: white;
+        }
+        
+        .form-control {
+            background-color: rgba(0, 0, 0, 0.4);
+            border: none;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .form-control:focus {
+            background-color: rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+        
+        .input-group-text {
+            background-color: rgba(0, 0, 0, 0.2);
+            border: none;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+    </style>
+{% endblock %}
+
+
+{% block content %}
+<nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{url_for('main.home')}}">Home</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Log in</li>
+      
+    </ol>
+</nav>
+
+<div class="container">
+    <div class="row justify-content-center align-items-center min-vh-100">
+        <div class="col-lg-5">
+            <div class="card bg-transparent p-4">
+                <div class="card-body">
+                    <h2 class="text-center mb-4 fs-1">Login</h2>
+                    <form method="POST" action="{{ url_for('auth.login') }}">
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <div class="input-group-text"><i class="bi bi-person-fill"></i></div>
+                                <input type="text" class="form-control form-control-lg" id="username" name="username" placeholder="Username" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <div class="input-group-text"><i class="bi bi-lock-fill"></i></div>
+                                <input type="password" class="form-control form-control-lg" id="password" name="password" placeholder="Password" required>
+                            </div>
+                        </div>
+                        <div class="form-options d-flex justify-content-between">
+                          <label>
+                            <input type="checkbox" name="remember"> Remember Me
+                          </label>
+                          <a href="{{ url_for('auth.reset') }}" class="link-light link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover">Forgot Password?</a>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-lg btn-light mt-2">Login</button>
+                        </div>
+                        <div class="form-options text-center mt-2">
+                            <p>Don't have an account? <a href="{{ url_for('auth.register') }}" class="link-light link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover">Register</a></p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

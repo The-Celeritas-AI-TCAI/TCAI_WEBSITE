@@ -1,0 +1,9 @@
+<!-- To be modified -->
+
+<p>Dear {{ user.username }},</p>
+<p>Welcome to {{ app_name }}!</p>
+<p>To verify your email address, please click on the following link:</p>
+<p><a href="{{ app_url }}{{ url_for('auth.verify_email', token=token) }}">Verify Email</a></p>
+<p>If you did not make this request, please ignore this email.</p>
+<p>Sincerely,</p>
+<p>The {{ app_name }} Team</p>

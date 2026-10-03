@@ -1,0 +1,43 @@
+body {
+    background-image: url(../images/img_1.png);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.card {
+    backdrop-filter: blur(10px);
+    background-color: rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+.card-body h2 {
+    color: white;
+}
+
+.card-body {
+    color: white;
+}
+
+.form-control {
+    background-color: rgba(0, 0, 0, 0.4);
+    border: none;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.form-control:focus {
+    background-color: rgba(0, 0, 0, 0.3);
+    color: white;
+}
+
+.input-group-text {
+    background-color: rgba(0, 0, 0, 0.2);
+    border: none;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}

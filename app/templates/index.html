@@ -1,0 +1,1327 @@
+{% extends "base.html" %}
+{% block title %}The Celeritas AI{% endblock %}
+
+{% block content %}
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
+        crossorigin="anonymous">
+
+  <style>
+    .gradient-overlay {
+      background: linear-gradient(to right, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+      z-index: 1;
+    }
+
+    .card-img-overlay {
+      z-index: 2;
+    }
+
+    .slide-in-text {
+      opacity: 0;
+      transform: translateX(100px);
+      transition: all 1s ease-out;
+    }
+
+    .slide-in-text.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .carousel-control-prev,
+    .carousel-control-next {
+      display: none;
+    }
+
+    .carousel-item {
+      transition: transform 0.8s ease-in-out;
+    }
+
+    .gradient-text {
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .animated-underline {
+      display: inline-block;
+      position: relative;
+    }
+
+    .animated-underline::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 2px;
+      bottom: -4px;
+      left: 0;
+      background-color: #3b82f6;
+      transition: width 0.3s ease;
+    }
+
+    .animated-underline:hover::after {
+      width: 100%;
+    }
+
+    .carousel-item {
+      position: relative;
+      border: double 3px transparent;
+      background-clip: padding-box;
+      background-image:
+        linear-gradient(white, white),
+        linear-gradient(to right, #ff8a00, #da1b60);
+      background-origin: border-box;
+      animation: border-anim 3s linear infinite;
+    }
+
+    @keyframes border-anim {
+      to {
+        background-position: 100% 100%;
+      }
+    }
+
+    .carousel .btn {
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .carousel .btn:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    body {
+      padding-top: 90px;
+    }
+
+    .nav-link:hover {
+      color: #4a6baf !important;
+      transform: translateY(-2px);
+    }
+
+    .navbar {
+      padding: 10px 0;
+    }
+
+    .nav-item {
+      margin: 0 8px;
+    }
+  </style>
+
+  <title>Website</title>
+</head>
+
+<body>
+
+<!-- =========================
+     NAVBAR
+     ========================= -->
+<nav class="navbar navbar-expand-lg navbar-light fixed-top"
+     style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+
+  <div class="container">
+
+    <a class="navbar-brand" href="/">
+      <img src="{{ url_for('static', filename='images/tcai_logo.jpeg') }}"
+           alt="Company Logo"
+           width="60"
+           height="60">
+    </a>
+
+    <button class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent"
+            aria-expanded="false"
+            aria-label="Toggle navigation">
+
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+
+      <!-- LEFT NAVIGATION -->
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+        <!-- Account / Login -->
+        <li class="nav-item">
+          <a class="nav-link"
+             href="{{ url_for('auth.login') }}"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+
+            {% if current_user.is_authenticated %}
+              Account
+            {% else %}
+              Login
+            {% endif %}
+
+          </a>
+        </li>
+
+        <!-- Register -->
+        {% if not current_user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link"
+             href="{{ url_for('auth.register') }}"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            Register
+          </a>
+        </li>
+        {% endif %}
+
+        <!-- EMPLOYEE ONBOARDING -->
+        {% if current_user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link"
+             href="{{ url_for('main.onboarding') }}"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            Employee Onboarding
+          </a>
+        </li>
+        {% endif %}
+
+        <!-- AI Blog -->
+        <li class="nav-item">
+          <a class="nav-link"
+             href="#"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            AI Blog
+          </a>
+        </li>
+
+        <!-- Products -->
+        <li class="nav-item">
+          <a class="nav-link"
+             href="#custom-cards_products"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            Products
+          </a>
+        </li>
+
+        <!-- Services -->
+        <li class="nav-item">
+          <a class="nav-link"
+             href="#services"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            Services
+          </a>
+        </li>
+
+        <!-- About Us -->
+        <li class="nav-item">
+          <a class="nav-link"
+             href="#custom-cards_mv"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            About Us
+          </a>
+        </li>
+
+        <!-- Contact Us -->
+        <li class="nav-item">
+          <a class="nav-link"
+             href="#footer"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            Contact Us
+          </a>
+        </li>
+
+        <!-- Book Demo -->
+        <li class="nav-item">
+          <a class="nav-link"
+             href="#footer"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            Book Demo
+          </a>
+        </li>
+
+      </ul>
+
+      <!-- RIGHT NAVIGATION -->
+      <ul class="navbar-nav">
+
+        {% if current_user.is_authenticated %}
+
+        <li class="nav-item">
+          <a class="nav-link"
+             href="#"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            Hi, {{ current_user.username }}
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link"
+             href="{{ url_for('auth.logout') }}"
+             style="font-weight: 500; color: #495057; transition: all 0.3s;">
+            Logout
+          </a>
+        </li>
+
+        {% endif %}
+
+      </ul>
+
+    </div>
+  </div>
+</nav>
+
+
+<!-- =========================
+     WELCOME / HERO
+     ========================= -->
+<div class="position-relative">
+
+  <img src="{{ url_for('static', filename='images/img_1.png') }}"
+       class="card-img"
+       alt="AI Background">
+
+  <div class="position-absolute top-0 start-0 w-100 h-100 gradient-overlay"></div>
+
+  <div class="card-img-overlay d-flex align-items-center justify-content-center">
+
+    <div class="p-4 p-md-5 mb-4 rounded text-white w-auto text-end slide-in-text">
+
+      <div class="px-0">
+
+        <h1 class="display-6 fst-italic fw-bold">
+          "AI is the New Electricity, Data is the New Oil"
+        </h1>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center my-4">
+
+          <button class="btn btn-gradient-primary me-md-3 px-4 py-2"
+                  type="button">
+            <i class="fas fa-robot me-2"></i>
+            AI Blog
+          </button>
+
+          <button class="btn btn-gradient-secondary px-4 py-2"
+                  type="button">
+            <i class="fas fa-calendar-check me-2"></i>
+            Book Demo
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<style>
+  .btn-gradient-primary {
+    background: linear-gradient(135deg, #4a6baf 0%, #3a5a9c 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    border-radius: 30px;
+    box-shadow: 0 4px 15px rgba(74, 107, 175, 0.3);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-gradient-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    border-radius: 30px;
+    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-gradient-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(74, 107, 175, 0.4);
+    background: linear-gradient(135deg, #3a5a9c 0%, #4a6baf 100%);
+  }
+
+  .btn-gradient-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+    background: linear-gradient(135deg, #5a6268 0%, #6c757d 100%);
+  }
+</style>
+
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+
+<!-- =========================
+     MISSION & VISION
+     ========================= -->
+<div class="container px-4 py-5" id="custom-cards_mv">
+
+  <div class="text-center mb-5">
+
+    <h2 class="pb-3 border-bottom border-3 border-primary d-inline-block fw-bold display-4">
+      <span class="text-primary">Mission & Vision</span>
+    </h2>
+
+    <p class="lead mt-3 text-muted">
+      Guided by our core values, we strive to innovate, inspire,
+      and create a lasting impact in everything we do.
+    </p>
+
+  </div>
+
+  <div class="container px-4 py-5">
+
+    <div class="row g-4">
+
+      <!-- Mission -->
+      <div class="col-md-6">
+
+        <div class="card h-100 border-0 shadow-lg rounded-4 overflow-hidden mission-card">
+
+          <div class="card-body p-4 p-lg-5 position-relative">
+
+            <div class="icon-wrapper bg-opacity-25 rounded-3 p-3 mb-4 d-inline-flex">
+              <svg xmlns="http://www.w3.org/2000/svg"
+                   width="28"
+                   height="28"
+                   fill="white"
+                   viewBox="0 0 16 16">
+
+                <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM4.5 7.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H4.5z"/>
+
+              </svg>
+            </div>
+
+            <h3 class="card-title fw-bold mb-3 text-white">
+              Our Mission
+            </h3>
+
+            <p class="card-text text-white text-opacity-80 mb-4 fs-5">
+              To empower businesses through innovative AI solutions
+              that transform data into actionable intelligence,
+              driving growth and efficiency.
+            </p>
+
+            <a href="#"
+               class="btn btn-outline-light btn-hover-fill rounded-pill px-4 py-2 mt-2 fw-semibold">
+              <span>Learn more</span>
+              <i class="bi bi-arrow-right ms-2"></i>
+            </a>
+
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Vision -->
+      <div class="col-md-6">
+
+        <div class="card h-100 border-0 shadow-lg rounded-4 overflow-hidden vision-card">
+
+          <div class="card-body p-4 p-lg-5 position-relative">
+
+            <div class="icon-wrapper bg-opacity-25 rounded-3 p-3 mb-4 d-inline-flex">
+
+              <svg xmlns="http://www.w3.org/2000/svg"
+                   width="28"
+                   height="28"
+                   fill="white"
+                   viewBox="0 0 16 16">
+
+                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8.5 4.5a.5.5 0 0 0-1 0v3h-3a.5.5 0 0 0 0 1h3v3a.5.5 0 0 0 1 0v-3h3a.5.5 0 0 0 0-1h-3v-3z"/>
+
+              </svg>
+
+            </div>
+
+            <h3 class="card-title fw-bold mb-3 text-white">
+              Our Vision
+            </h3>
+
+            <p class="card-text text-white text-opacity-80 mb-4 fs-5">
+              To create a future where artificial intelligence
+              augments human potential, making advanced technology
+              accessible to organizations of all sizes.
+            </p>
+
+            <a href="#"
+               class="btn btn-outline-light btn-hover-fill rounded-pill px-4 py-2 mt-2 fw-semibold">
+
+              <span>Learn more</span>
+              <i class="bi bi-arrow-right ms-2"></i>
+
+            </a>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<style>
+  .mission-card {
+    background: linear-gradient(135deg, #3a7bd5 0%, #00d2ff 100%);
+    transition: transform 0.3s ease;
+  }
+
+  .vision-card {
+    background: linear-gradient(135deg, #4776E6 0%, #8E54E9 100%);
+    transition: transform 0.3s ease;
+  }
+
+  .mission-card:hover,
+  .vision-card:hover {
+    transform: translateY(-5px);
+  }
+
+  .btn-hover-fill:hover {
+    background-color: white;
+    color: #3a7bd5 !important;
+  }
+
+  .vision-card .btn-hover-fill:hover {
+    color: #4776E6 !important;
+  }
+
+  .icon-wrapper {
+    transition: transform 0.3s ease, background-color 0.3s ease;
+  }
+
+  .card:hover .icon-wrapper {
+    transform: scale(1.1);
+    background-color: rgba(255,255,255,0.3) !important;
+  }
+</style>
+
+
+<!-- =========================
+     SERVICES
+     ========================= -->
+<div class="container px-4 py-5" id="services">
+
+  <div class="text-center mb-5">
+
+    <h2 class="pb-3 border-bottom border-3 border-primary d-inline-block fw-bold display-4">
+      <span class="text-primary">Our Services</span>
+    </h2>
+
+    <p class="lead mt-3 text-muted">
+      Cutting-edge AI solutions tailored to your business needs
+    </p>
+
+  </div>
+
+  <div class="row row-cols-1 row-cols-lg-4 g-4">
+
+    <!-- Service 1 -->
+    <div class="col">
+
+      <div class="card h-100 border-0 rounded-4 overflow-hidden shadow-hover">
+
+        <div class="card-img-top overflow-hidden">
+
+          <img src="{{ url_for('static', filename='images/services_1_card_2.jpg') }}"
+               class="img-fluid w-100 zoom-effect"
+               alt="AI/ML Development">
+
+          <div class="img-overlay"></div>
+
+        </div>
+
+        <div class="card-body p-4">
+
+          <div class="icon-wrapper bg-primary bg-opacity-10 rounded-3 p-3 mb-3 d-inline-flex">
+            <i class="bi bi-cpu-fill text-primary fs-4"></i>
+          </div>
+
+          <h3 class="card-title fw-bold mb-3">
+            AI/ML Software Development
+          </h3>
+
+          <p class="card-text text-muted">
+            Custom AI solutions built from scratch to solve your
+            specific business challenges with machine learning algorithms.
+          </p>
+
+          <a href="#"
+             class="btn btn-link text-primary text-decoration-none p-0 fw-bold stretched-link">
+            Learn more
+            <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Service 2 -->
+    <div class="col">
+
+      <div class="card h-100 border-0 rounded-4 overflow-hidden shadow-hover">
+
+        <div class="card-img-top overflow-hidden">
+
+          <img src="{{ url_for('static', filename='images/services_2_card_1.jpg') }}"
+               class="img-fluid w-100 zoom-effect"
+               alt="Marketing Analytics">
+
+          <div class="img-overlay"></div>
+
+        </div>
+
+        <div class="card-body p-4">
+
+          <div class="icon-wrapper bg-success bg-opacity-10 rounded-3 p-3 mb-3 d-inline-flex">
+            <i class="bi bi-bar-chart-line-fill text-success fs-4"></i>
+          </div>
+
+          <h3 class="card-title fw-bold mb-3">
+            AI-Powered Analytics
+          </h3>
+
+          <p class="card-text text-muted">
+            Transform your marketing strategy with predictive analytics
+            and customer behavior insights powered by AI.
+          </p>
+
+          <a href="#"
+             class="btn btn-link text-success text-decoration-none p-0 fw-bold stretched-link">
+            Learn more
+            <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Service 3 -->
+    <div class="col">
+
+      <div class="card h-100 border-0 rounded-4 overflow-hidden shadow-hover">
+
+        <div class="card-img-top overflow-hidden">
+
+          <img src="{{ url_for('static', filename='images/services_3_card_1.jpg') }}"
+               class="img-fluid w-100 zoom-effect"
+               alt="Data Science">
+
+          <div class="img-overlay"></div>
+
+        </div>
+
+        <div class="card-body p-4">
+
+          <div class="icon-wrapper bg-info bg-opacity-10 rounded-3 p-3 mb-3 d-inline-flex">
+            <i class="bi bi-database-fill text-info fs-4"></i>
+          </div>
+
+          <h3 class="card-title fw-bold mb-3">
+            Data Science & Engineering
+          </h3>
+
+          <p class="card-text text-muted">
+            Turn raw data into actionable insights with our
+            comprehensive data pipelines and analytics solutions.
+          </p>
+
+          <a href="#"
+             class="btn btn-link text-info text-decoration-none p-0 fw-bold stretched-link">
+            Learn more
+            <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Service 4 -->
+    <div class="col">
+
+      <div class="card h-100 border-0 rounded-4 overflow-hidden shadow-hover">
+
+        <div class="card-img-top overflow-hidden">
+
+          <img src="{{ url_for('static', filename='images/services_4_card_1.jpg') }}"
+               class="img-fluid w-100 zoom-effect"
+               alt="Strategic Management">
+
+          <div class="img-overlay"></div>
+
+        </div>
+
+        <div class="card-body p-4">
+
+          <div class="icon-wrapper bg-warning bg-opacity-10 rounded-3 p-3 mb-3 d-inline-flex">
+            <i class="bi bi-diagram-3-fill text-warning fs-4"></i>
+          </div>
+
+          <h3 class="card-title fw-bold mb-3">
+            AI Strategic Management
+          </h3>
+
+          <p class="card-text text-muted">
+            Develop and implement AI strategies that align with your
+            business objectives for maximum impact.
+          </p>
+
+          <a href="#"
+             class="btn btn-link text-warning text-decoration-none p-0 fw-bold stretched-link">
+            Learn more
+            <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<style>
+  .shadow-hover {
+    transition: all 0.3s ease;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+  }
+
+  .shadow-hover:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.15);
+  }
+
+  .zoom-effect {
+    transition: transform 0.5s ease;
+  }
+
+  .card:hover .zoom-effect {
+    transform: scale(1.05);
+  }
+
+  .img-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.1) 0%,
+      rgba(0,0,0,0.7) 100%
+    );
+    opacity: 0.3;
+  }
+
+  .border-primary {
+    border-color: #0d6efd !important;
+  }
+
+  .card-img-top {
+    height: 180px;
+    object-fit: cover;
+  }
+</style>
+
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+
+<!-- =========================
+     PRODUCTS
+     ========================= -->
+<div class="container px-4 py-4" id="custom-cards_products">
+
+  <div class="text-center mb-5">
+
+    <h2 class="pb-3 border-bottom border-3 border-primary d-inline-block fw-bold display-4">
+      <span class="text-primary">Our Products</span>
+    </h2>
+
+    <p class="lead mt-3 text-muted">
+      Discover our high-quality products designed to meet your needs
+      and exceed your expectations.
+    </p>
+
+  </div>
+
+  <div class="container py-4">
+
+    <div id="productsCarousel"
+         class="carousel carousel-dark slide"
+         data-bs-ride="carousel">
+
+      <div class="carousel-indicators">
+
+        <button type="button"
+                data-bs-target="#productsCarousel"
+                data-bs-slide-to="0"
+                class="active"
+                aria-current="true"
+                aria-label="Slide 1">
+        </button>
+
+        <button type="button"
+                data-bs-target="#productsCarousel"
+                data-bs-slide-to="1"
+                aria-label="Slide 2">
+        </button>
+
+        <button type="button"
+                data-bs-target="#productsCarousel"
+                data-bs-slide-to="2"
+                aria-label="Slide 3">
+        </button>
+
+      </div>
+
+
+      <div class="carousel-inner">
+
+        <!-- Product 1 -->
+        <div class="carousel-item active"
+             style="background: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), url('{{ url_for('static', filename='images/img_1.png') }}') center/cover no-repeat; border-radius: 20px;"
+             data-bs-interval="5000">
+
+          <div class="container h-100 d-flex align-items-center">
+
+            <div class="row flex-lg-row-reverse align-items-center g-5 py-5 w-100 justify-content-center">
+
+              <div class="col-lg-8 px-4 bg-white rounded-4 p-4 shadow-sm d-flex align-items-center"
+                   style="backdrop-filter: blur(12px);
+                          -webkit-backdrop-filter: blur(12px);
+                          background: rgba(255, 255, 255, 0.85);
+                          border: 1px solid rgba(255, 255, 255, 0.2);
+                          box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+                          border-radius: 20px;">
+
+                <div class="col-lg-8 pe-4">
+
+                  <h1 class="animated-underline gradient-text display-5 fw-bold mb-3">
+                    TOTA
+                  </h1>
+
+                  <p class="lead">
+                    Generates and matches Q&A to deliver accurate,
+                    actionable responses.
+                  </p>
+
+                  <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+
+                    <button type="button"
+                            class="btn btn-primary btn-lg px-4 me-md-2">
+                      Request Info
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-outline-primary btn-lg px-4">
+                      Case Studies
+                    </button>
+
+                  </div>
+
+                </div>
+
+                <div class="col-lg-4 ps-4">
+
+                  <img src="{{ url_for('static', filename='images/TOTA.png') }}"
+                       class="img-fluid rounded shadow"
+                       alt="TOTA Product"
+                       width="300"
+                       loading="lazy">
+
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Product 2 -->
+        <div class="carousel-item"
+             style="background: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), url('{{ url_for('static', filename='images/img_1.png') }}') center/cover no-repeat; border-radius: 20px;"
+             data-bs-interval="5000">
+
+          <div class="container h-100 d-flex align-items-center">
+
+            <div class="row flex-lg-row-reverse align-items-center g-5 py-5 w-100 justify-content-center">
+
+              <div class="col-lg-8 px-4 bg-white rounded-4 p-4 shadow-sm d-flex align-items-center"
+                   style="backdrop-filter: blur(12px);
+                          -webkit-backdrop-filter: blur(12px);
+                          background: rgba(255, 255, 255, 0.85);
+                          border: 1px solid rgba(255, 255, 255, 0.2);
+                          box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+                          border-radius: 20px;">
+
+                <div class="col-lg-8 pe-4">
+
+                  <h1 class="animated-underline gradient-text display-5 fw-bold mb-3">
+                    SANDESH
+                  </h1>
+
+                  <p class="lead">
+                    Transforms customer conversations into valuable
+                    feedback for improved experiences.
+                  </p>
+
+                  <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+
+                    <button type="button"
+                            class="btn btn-primary btn-lg px-4 me-md-2">
+                      Request Info
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-outline-primary btn-lg px-4">
+                      Case Studies
+                    </button>
+
+                  </div>
+
+                </div>
+
+                <div class="col-lg-4 ps-4">
+
+                  <img src="{{ url_for('static', filename='images/SANDESH.png') }}"
+                       class="img-fluid rounded shadow"
+                       alt="SANDESH Product"
+                       width="300"
+                       loading="lazy">
+
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Product 3 -->
+        <div class="carousel-item"
+             style="background: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), url('{{ url_for('static', filename='images/img_1.png') }}') center/cover no-repeat; border-radius: 20px;"
+             data-bs-interval="5000">
+
+          <div class="container h-100 d-flex align-items-center">
+
+            <div class="row flex-lg-row-reverse align-items-center g-5 py-5 w-100 justify-content-center">
+
+              <div class="col-lg-8 px-4 bg-white rounded-4 p-4 shadow-sm d-flex align-items-center"
+                   style="backdrop-filter: blur(12px);
+                          -webkit-backdrop-filter: blur(12px);
+                          background: rgba(255, 255, 255, 0.85);
+                          border: 1px solid rgba(255, 255, 255, 0.2);
+                          box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+                          border-radius: 20px;">
+
+                <div class="col-lg-8 pe-4">
+
+                  <h1 class="animated-underline gradient-text display-5 fw-bold mb-3">
+                    MedX
+                  </h1>
+
+                  <p class="lead">
+                    Analyzes fluoroscopy images and provides insights
+                    for faster medical decisions
+                  </p>
+
+                  <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+
+                    <button type="button"
+                            class="btn btn-primary btn-lg px-4 me-md-2">
+                      Request Info
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-outline-primary btn-lg px-4">
+                      Case Studies
+                    </button>
+
+                  </div>
+
+                </div>
+
+                <div class="col-lg-4 ps-4">
+
+                  <img src="{{ url_for('static', filename='images/med_x.jpeg') }}"
+                       class="img-fluid rounded shadow"
+                       alt="MedX Product"
+                       width="300"
+                       loading="lazy">
+
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+
+      <button class="carousel-control-prev"
+              type="button"
+              data-bs-target="#productsCarousel"
+              data-bs-slide="prev">
+
+        <span class="carousel-control-prev-icon"
+              aria-hidden="true">
+        </span>
+
+        <span class="visually-hidden">
+          Previous
+        </span>
+
+      </button>
+
+
+      <button class="carousel-control-next"
+              type="button"
+              data-bs-target="#productsCarousel"
+              data-bs-slide="next">
+
+        <span class="carousel-control-next-icon"
+              aria-hidden="true">
+        </span>
+
+        <span class="visually-hidden">
+          Next
+        </span>
+
+      </button>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- =========================
+     FOOTER
+     ========================= -->
+<footer class="bg-dark text-white pt-5 pb-4 mt-auto"
+        id="footer">
+
+  <div class="container-fluid px-5">
+
+    <div class="row g-4">
+
+      <!-- Brand -->
+      <div class="col-lg-4 col-md-6 mb-4">
+
+        <div class="d-flex align-items-center mb-3">
+
+          <span class="fs-4 fw-bold text-primary">
+            The Celeritas AI
+          </span>
+
+        </div>
+
+        <p class="text-white-50 mb-3">
+          Transforming businesses with cutting-edge AI technology
+          and data-driven solutions.
+        </p>
+
+        <div class="social-icons d-flex gap-3">
+
+          <a href="#" class="text-white-50 hover-primary">
+            <i class="bi bi-twitter fs-5"></i>
+          </a>
+
+          <a href="#" class="text-white-50 hover-primary">
+            <i class="bi bi-facebook fs-5"></i>
+          </a>
+
+          <a href="#" class="text-white-50 hover-primary">
+            <i class="bi bi-linkedin fs-5"></i>
+          </a>
+
+          <a href="#" class="text-white-50 hover-primary">
+            <i class="bi bi-instagram fs-5"></i>
+          </a>
+
+        </div>
+      </div>
+
+
+      <!-- Solutions -->
+      <div class="col-lg-2 col-md-6 col-6 mb-4">
+
+        <h5 class="text-uppercase fw-bold mb-4 text-primary">
+          Solutions
+        </h5>
+
+        <ul class="list-unstyled">
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              AI Consulting
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Data Analytics
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Machine Learning
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Automation
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Cloud AI
+            </a>
+          </li>
+
+        </ul>
+      </div>
+
+
+      <!-- Resources -->
+      <div class="col-lg-2 col-md-6 col-6 mb-4">
+
+        <h5 class="text-uppercase fw-bold mb-4 text-primary">
+          Resources
+        </h5>
+
+        <ul class="list-unstyled">
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Documentation
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Case Studies
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Blog
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Webinars
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              API
+            </a>
+          </li>
+
+        </ul>
+      </div>
+
+
+      <!-- Company -->
+      <div class="col-lg-2 col-md-6 col-6 mb-4">
+
+        <h5 class="text-uppercase fw-bold mb-4 text-primary">
+          Company
+        </h5>
+
+        <ul class="list-unstyled">
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              About Us
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Careers
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Press
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Partners
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Contact
+            </a>
+          </li>
+
+        </ul>
+      </div>
+
+
+      <!-- Legal -->
+      <div class="col-lg-2 col-md-6 col-6 mb-4">
+
+        <h5 class="text-uppercase fw-bold mb-4 text-primary">
+          Legal
+        </h5>
+
+        <ul class="list-unstyled">
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Privacy Policy
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Terms of Service
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              Cookie Policy
+            </a>
+          </li>
+
+          <li class="mb-2">
+            <a href="#" class="text-white-50 text-decoration-none hover-white">
+              GDPR
+            </a>
+          </li>
+
+        </ul>
+      </div>
+
+    </div>
+
+
+    <hr class="my-4 bg-secondary">
+
+
+    <div class="row align-items-center">
+
+      <div class="col-md-6 text-center text-md-start">
+
+        <small class="text-white-50">
+          © {{ current_year }} The Celeritas AI. All rights reserved.
+        </small>
+
+      </div>
+
+    </div>
+
+  </div>
+</footer>
+
+
+<style>
+  .hover-primary:hover {
+    color: #0d6efd !important;
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+  }
+
+  .hover-white:hover {
+    color: white !important;
+    padding-left: 5px;
+    transition: all 0.3s ease;
+  }
+
+  footer a {
+    transition: all 0.3s ease;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  main {
+    flex: 1 0 auto;
+  }
+
+  footer {
+    flex-shrink: 0;
+    width: 100%;
+  }
+</style>
+
+
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+        crossorigin="anonymous">
+</script>
+
+
+<!-- Animation -->
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+
+    const observer = new IntersectionObserver(entries => {
+
+      entries.forEach(entry => {
+
+        if (entry.isIntersecting) {
+          entry.target.classList.add('show');
+        }
+
+      });
+
+    });
+
+    const animatedElement =
+      document.querySelector('.slide-in-text');
+
+    if (animatedElement) {
+      observer.observe(animatedElement);
+    }
+
+  });
+</script>
+
+</body>
+</html>
+
+{% endblock %}

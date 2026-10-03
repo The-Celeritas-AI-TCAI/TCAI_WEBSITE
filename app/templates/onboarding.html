@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TCAI – New Employee Onboarding Form</title>
+<!--
+==========================================================================
+ TCAI – NEW EMPLOYEE ONBOARDING FORM
+==========================================================================
+ A self-contained onboarding form (HTML + CSS + vanilla JS). Open this file
+ in any modern browser – no build step or server is required.
+
+ HOW IT WORKS
+ - The form is defined declaratively in the SECTIONS array (search for
+   "FORM SCHEMA"). To add / remove / rename a field, edit that array only;
+   rendering, validation, review page and JSON export follow automatically.
+ - Every change is auto-saved to localStorage (key: tcai_onboarding_draft_v1).
+   Uploaded files are NOT stored in drafts (browser storage limits/privacy).
+ - On submit a reference number (TCAI-ONB-YYYYMMDD-XXXX) is generated and the
+   candidate can download the data as JSON or print / save it as a PDF.
+
+ CONNECTING TO A BACKEND
+ Replace the local-only behaviour in submitForm() with a POST to your API.
+ A ready-to-use placeholder is included (commented out) inside submitForm():
+
+   const fd = new FormData();
+   fd.append('payload', JSON.stringify(buildPayload()));
+   Object.entries(files).forEach(([key, file]) => fd.append(key, file, file.name));
+   const res = await fetch('/api/onboarding', { method: 'POST', body: fd });
+   if (!res.ok) throw new Error('Submission failed');
+   const { referenceNumber } = await res.json();   // let the server issue the ref no.
+
+ The server should re-validate every field, store files securely, and
+ encrypt sensitive values (Aadhaar, PAN, bank account) at rest.
+ Sensitive values are never written to the browser console by this page.
+==========================================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1F3A5F; --navy-2:#2B4C77; --teal:#14B8A6; --teal-d:#0F8F82; --teal-l:#E6F7F5;
+    --bg:#F3F5F8; --card:#FFFFFF; --text:#1E293B; --muted:#64748B; --border:#D7DEE7;
+    --err:#DC2626; --warn:#B45309; --ok:#15803D; --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-padding-top:150px}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:15px;line-height:1.5;color:var(--text);background:var(--bg)}
+  h1,h2,h3,h4{line-height:1.25}
+
+  /* ---------- Header ---------- */
+  .topbar{background:var(--navy);color:#fff;padding:18px 16px}
+  .topbar-in{max-width:1000px;margin:0 auto;display:flex;gap:16px;align-items:center}
+  .logo{width:58px;height:58px;flex:none;border-radius:12px;background:#fff;color:var(--navy);display:grid;place-items:center;font-weight:800;letter-spacing:.5px;border:2px dashed var(--teal);font-size:.95rem}
+  .topbar h1{margin:0;font-size:1.4rem;font-weight:700}
+  .topbar p{margin:3px 0 0;opacity:.85;font-size:.9rem}
+
+  /* ---------- Layout ---------- */
+  .app{max-width:1000px;margin:0 auto;padding:0 16px}
+  .welcome{margin:16px 0 0;padding:14px 18px;background:var(--teal-l);border:1px solid #BCE9E3;border-radius:var(--radius);font-size:.92rem;color:#134E4A}
+  .stepper-wrap{position:sticky;top:0;z-index:20;background:var(--bg);padding:12px 0 8px;border-bottom:1px solid transparent}
+  .step-label{font-weight:700;color:var(--navy);font-size:.95rem;margin-bottom:6px}
+  .progress{height:6px;background:#E2E8F0;border-radius:99px;overflow:hidden}
+  .progress>div{height:100%;background:var(--teal);border-radius:99px;transition:width .3s ease}
+  .progress.big{height:10px;margin:8px 0 14px}
+  .stepper{list-style:none;margin:10px 0 0;padding:0 0 6px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+  .st{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;border-radius:99px;padding:4px 11px 4px 4px;font:inherit;font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .st .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#E2E8F0;font-size:.72rem;font-weight:700}
+  .st.done{color:var(--navy);border-color:#9ED9D1}
+  .st.done .dot{background:var(--teal);color:#fff}
+  .st.current{background:var(--navy);border-color:var(--navy);color:#fff}
+  .st.current .dot{background:#fff;color:var(--navy)}
+  .st:disabled{cursor:not-allowed;opacity:.55}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:26px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .sec-title{margin:0;color:var(--navy);font-size:1.3rem}
+  .sec-intro{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+  .sec-err{margin-top:14px;padding:10px 14px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;color:var(--err);font-size:.88rem;font-weight:500}
+  .sec-err[hidden]{display:none}
+
+  /* ---------- Fields ---------- */
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;margin-top:16px}
+  .field{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .field.full{grid-column:1/-1}
+  .field[hidden]{display:none}
+  label{font-weight:600;font-size:.86rem;color:#334155}
+  .req{color:var(--err);margin-left:3px}
+  input[type=text],input[type=email],input[type=url],input[type=number],input[type=date],input[type=month],input[type=tel],input[type=password],select,textarea{
+    width:100%;font:inherit;font-size:.95rem;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);min-height:40px}
+  textarea{resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:3px solid rgba(20,184,166,.3);outline-offset:0;border-color:var(--teal)}
+  button:focus-visible{outline:3px solid rgba(20,184,166,.5);outline-offset:2px}
+  input:disabled,select:disabled,textarea:disabled,input[readonly]{background:#EEF1F5;color:#64748B}
+  input:disabled,select:disabled,textarea:disabled{cursor:not-allowed}
+  .invalid input,.invalid select,.invalid textarea,.invalid .tags{border-color:var(--err)}
+  .invalid.checkbox-field .choice{border-color:var(--err)}
+  .err{color:var(--err);font-size:.8rem;font-weight:500}
+  .warn{color:var(--warn);font-size:.8rem}
+  .hint{color:var(--muted);font-size:.8rem}
+  .err:empty,.warn:empty,.hint:empty{display:none}
+  .heading h3{margin:12px 0 0;font-size:1.02rem;color:var(--navy);padding-bottom:6px;border-bottom:2px solid var(--teal-l)}
+  .heading.hr-head h3{color:#7C2D12;border-color:#FED7AA}
+  .muted{color:var(--muted);font-size:.86rem;margin:2px 0 0}
+  .note{margin:0;padding:10px 14px;border-radius:8px;background:#F1F5F9;border-left:4px solid var(--navy-2);font-size:.86rem;color:#334155}
+  .note.conf{background:#FFF7ED;border-color:#F59E0B}
+  .note.hr{background:#FFF7ED;border-color:#EA580C}
+  .choice-row{display:flex;flex-wrap:wrap;gap:8px 20px;padding:5px 0}
+  .choice{display:inline-flex;align-items:center;gap:7px;font-weight:500;font-size:.92rem;color:var(--text);cursor:pointer}
+  .choice input{width:17px;height:17px;margin:0;accent-color:var(--teal);flex:none}
+  .checkbox-field .choice{align-items:flex-start;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+  .checkbox-field .choice input{margin-top:3px}
+  .input-group{display:flex;gap:6px}
+  .input-group .cc{width:96px;flex:none}
+  .input-group input{flex:1;min-width:0}
+
+  .file-box{display:flex;flex-direction:column;gap:6px}
+  .file-box input[type=file]{font:inherit;font-size:.85rem;padding:7px;border:1px dashed var(--border);border-radius:8px;background:#FBFCFE;width:100%}
+  .file-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:var(--teal-l);border-radius:8px;font-size:.84rem;word-break:break-all}
+  .photo-preview{width:110px;height:140px;object-fit:cover;border-radius:8px;border:1px solid var(--border)}
+  .sig-preview{max-width:220px;max-height:80px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#fff}
+
+  .tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;min-height:40px;cursor:text}
+  .tags input{border:0;outline:0;flex:1;min-width:140px;font:inherit;font-size:.92rem;padding:4px}
+  .tag{display:inline-flex;align-items:center;gap:4px;background:var(--navy);color:#fff;border-radius:99px;padding:2px 4px 2px 10px;font-size:.8rem}
+  .tag button{border:0;background:rgba(255,255,255,.2);color:#fff;border-radius:50%;width:18px;height:18px;line-height:1;cursor:pointer;padding:0}
+
+  .repeat .rep-row{border:1px solid var(--border);border-radius:10px;padding:14px 16px;background:#FBFCFE;margin-top:10px}
+  .rep-row-head{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--navy)}
+  .rep-row .grid{margin-top:8px}
+  .repeat>.btn-ghost{align-self:flex-start;margin-top:10px}
+  .total{padding:10px 14px;border-radius:8px;font-size:.9rem}
+  .total.ok{background:#F0FDF4;color:var(--ok);border:1px solid #BBF7D0}
+  .total.bad{background:#FEF2F2;color:var(--err);border:1px solid #FECACA}
+
+  .cl-head{display:flex;justify-content:space-between;align-items:baseline;color:var(--navy)}
+  .checklist{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px}
+  .checklist li{display:flex;align-items:center;gap:10px;font-size:.88rem;padding:6px 0;border-bottom:1px solid #EEF2F6}
+  .badge{flex:none;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:99px;min-width:72px;text-align:center}
+  .checklist .ok .badge{background:#DCFCE7;color:var(--ok)}
+  .checklist .pending .badge{background:#FEF3C7;color:#92400E}
+  .checklist .opt .badge{background:#E2E8F0;color:var(--muted)}
+
+  /* ---------- Buttons ---------- */
+  .btn-primary,.btn-ghost,.btn-link{font:inherit;font-weight:600;cursor:pointer;border-radius:8px;font-size:.92rem}
+  .btn-primary{background:var(--teal);color:#fff;border:1px solid var(--teal);padding:10px 20px}
+  .btn-primary:hover{background:var(--teal-d)}
+  .btn-ghost{background:#fff;color:var(--navy);border:1px solid var(--border);padding:9px 16px}
+  .btn-ghost:hover{border-color:var(--navy)}
+  .btn-ghost:disabled{opacity:.45;cursor:not-allowed}
+  .btn-link{background:none;border:0;color:var(--navy-2);padding:4px 6px;text-decoration:underline}
+  .btn-link.danger{color:var(--err)}
+  .sm{padding:6px 12px;font-size:.82rem}
+  .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:16px 0 40px}
+  .spacer{flex:1}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+
+  /* ---------- Review ---------- */
+  .rv-top{display:flex;gap:18px;align-items:center;margin-top:10px}
+  .rv-photo{width:90px;height:115px;object-fit:cover;border-radius:8px;border:1px solid var(--border)}
+  .rv-sec{border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-top:14px}
+  .rv-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .rv-head h3{margin:0;color:var(--navy);font-size:1.05rem}
+  .rv-sec h4{margin:12px 0 4px;font-size:.88rem;color:var(--navy-2);text-transform:uppercase;letter-spacing:.03em}
+  .rv{display:grid;grid-template-columns:minmax(150px,240px) 1fr;gap:3px 16px;margin:6px 0;font-size:.88rem}
+  .rv dt{color:var(--muted)}
+  .rv dd{margin:0;word-break:break-word;font-weight:500}
+  .rv-row{border-left:3px solid var(--teal-l);padding-left:12px;margin:8px 0}
+  .rv-row-t{font-weight:700;font-size:.85rem;color:var(--navy)}
+
+  /* ---------- Confirmation ---------- */
+  .confirm{text-align:center;padding:24px 8px}
+  .big-check{width:72px;height:72px;margin:0 auto 10px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:2.2rem;font-weight:700}
+  .confirm h2{color:var(--navy);margin:8px 0}
+  .refbox{display:inline-flex;flex-direction:column;gap:2px;margin:16px 0;padding:14px 28px;border:2px dashed var(--teal);border-radius:12px;color:var(--muted);font-size:.85rem}
+  .refbox strong{font-size:1.4rem;color:var(--navy);letter-spacing:.04em}
+
+  /* ---------- Modal / toast ---------- */
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;z-index:50;padding:16px}
+  .modal[hidden]{display:none}
+  .modal-card{background:#fff;border-radius:14px;padding:24px;max-width:440px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .modal-card h2{margin:0 0 6px;color:var(--navy);font-size:1.2rem}
+  .modal-card .btn-row{justify-content:flex-end;margin-top:18px}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:.88rem;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:calc(100% - 32px)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  #printView{display:none}
+
+  @media (max-width:720px){
+    .grid,.checklist{grid-template-columns:1fr}
+    .card{padding:18px 16px}
+    .topbar h1{font-size:1.1rem}
+    .st{padding:4px}
+    .st .st-l{display:none}
+    .st.current{padding-right:11px}
+    .st.current .st-l{display:inline}
+    .rv{grid-template-columns:1fr;gap:0}
+    .rv dd{margin-bottom:6px}
+    .actions .btn-primary,.actions .btn-ghost{flex:1}
+    .actions .spacer{display:none}
+  }
+
+  /* ---------- Print ---------- */
+  @media print{
+    @page{
+      size:A4; margin:20mm 14mm 16mm;
+      @top-center{content:"TCAI – New Employee Onboarding Form";font-size:9pt;color:#555}
+      @bottom-right{content:"Page " counter(page) " of " counter(pages);font-size:9pt;color:#555}
+    }
+    body{background:#fff;font-size:10.5pt}
+    .topbar,.app,.modal,.toast{display:none !important}
+    #printView{display:block}
+    .pv-head{display:flex;gap:14px;align-items:center;border-bottom:2px solid var(--navy);padding-bottom:10px;margin-bottom:6px}
+    .pv-head h1{margin:0;font-size:15pt;color:var(--navy)}
+    .pv-head p{margin:2px 0 0;font-size:9pt}
+    .rv-sec{break-inside:auto;border-color:#bbb}
+    .rv-row,.rv dt,.rv dd{break-inside:avoid}
+    .rv{grid-template-columns:200px 1fr}
+    .pv-sign{display:flex;justify-content:space-between;gap:40px;margin-top:50px;break-inside:avoid}
+    .pv-sign div{flex:1;border-top:1px solid #333;padding-top:6px;font-size:9pt;text-align:center}
+    button{display:none !important}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="logo" aria-label="TCAI logo placeholder">TCAI</div>
+    <div>
+      <h1>New Employee Onboarding Form</h1>
+      <p>Human Resources · Please complete all sections before your date of joining</p>
+    </div>
+  </div>
+</header>
+
+<div class="app" id="app">
+  <div class="welcome">
+    <strong>Welcome to TCAI!</strong> We're delighted you're joining us. This form collects the details we need to set up your employment, payroll and statutory records.
+    Fields marked <span class="req">*</span> are mandatory. Your progress is saved automatically on this device, so you can come back and finish later.
+  </div>
+
+  <nav class="stepper-wrap" aria-label="Form progress">
+    <div class="step-label" id="stepLabel"></div>
+    <div class="progress" aria-hidden="true"><div id="progressBar"></div></div>
+    <ol class="stepper" id="stepper"></ol>
+  </nav>
+
+  <main class="card" id="formArea" aria-live="polite"></main>
+  <div class="actions" id="actions"></div>
+</div>
+
+<div id="printView"></div>
+
+<div class="modal" id="resumeModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
+    <h2 id="rmTitle">Resume your saved draft?</h2>
+    <p id="rmText" style="margin:0"></p>
+    <p class="muted">Uploaded files are not saved in drafts – you will need to attach them again.</p>
+    <div class="btn-row">
+      <button type="button" class="btn-ghost" id="rmNo">Start fresh</button>
+      <button type="button" class="btn-primary" id="rmYes">Yes, resume</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   CONSTANTS & HELPERS
+   ===================================================================== */
+const DRAFT_KEY = 'tcai_onboarding_draft_v1';
+const MAX_FILE = 2 * 1024 * 1024;
+const CY = new Date().getFullYear();
+const YN = ['Yes', 'No'];
+const STATES = ['Andaman and Nicobar Islands','Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chandigarh','Chhattisgarh',
+  'Dadra and Nagar Haveli and Daman and Diu','Delhi','Goa','Gujarat','Haryana','Himachal Pradesh','Jammu and Kashmir','Jharkhand',
+  'Karnataka','Kerala','Ladakh','Lakshadweep','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha',
+  'Puducherry','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Outside India'];
+const COUNTRY_CODES = ['+91','+1','+44','+61','+65','+971','+966','+974','+968','+49','+33','+81','+86','+977','+880','+94'];
+const RELATIONS = ['Spouse','Father','Mother','Son','Daughter','Brother','Sister','Other'];
+
+const RX = {
+  mobile: /^[6-9]\d{9}$/,
+  email: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/,
+  pin: /^[1-9]\d{5}$/,
+  aadhaar: /^[2-9]\d{11}$/,
+  pan: /^[A-Z]{5}[0-9]{4}[A-Z]$/,
+  ifsc: /^[A-Z]{4}0[A-Z0-9]{6}$/,
+  name: /^[A-Za-z][A-Za-z .']*$/,
+};
+const NAME_MSG = 'Use letters, spaces, dots and apostrophes only.';
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const isEmpty = v => v == null || v === '' || v === false || (Array.isArray(v) && v.length === 0) || (typeof v === 'string' && !v.trim());
+function todayStr(){ const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; }
+function parseDate(s){ if (!s) return null; const [y,m,d] = String(s).split('-').map(Number); return y ? new Date(y, (m||1)-1, d||1) : null; }
+function ageOn(dob){ const b = parseDate(dob); if (!b) return null; const r = new Date(); let a = r.getFullYear() - b.getFullYear();
+  if (r.getMonth() < b.getMonth() || (r.getMonth() === b.getMonth() && r.getDate() < b.getDate())) a--; return a; }
+const isMinor = dob => { const a = ageOn(dob); return a !== null && a < 18; };
+function monthsBetween(a, b){ const x = parseDate(a), y = parseDate(b || todayStr()); if (!x || !y || y < x) return 0;
+  let m = (y.getFullYear()-x.getFullYear())*12 + (y.getMonth()-x.getMonth()); if (y.getDate() < x.getDate()) m--; return Math.max(0, m); }
+const fmtYM = m => `${Math.floor(m/12)} year${Math.floor(m/12) === 1 ? '' : 's'} ${m%12} month${m%12 === 1 ? '' : 's'}`;
+function fmtDate(s){ if (!s) return ''; const p = s.split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : p.length === 2 ? `${p[1]}/${p[0]}` : s; }
+const notFuture = v => v > todayStr() ? 'Date cannot be in the future.' : '';
+function mask(v, kind){ v = String(v); return kind === 'aadhaar' ? 'XXXX-XXXX-' + v.slice(-4) : 'X'.repeat(Math.max(0, v.length-4)) + v.slice(-4); }
+const ROW_META = ['level','_req','score_type','cgpa_scale','mode'];
+const rowFilled = r => Object.entries(r || {}).some(([k, v]) => !ROW_META.includes(k) && !isEmpty(v));
+
+/* Field builders */
+let _auto = 0;
+const F = (type, name, label, o = {}) => Object.assign({ type, name, label }, o);
+const txt = (n, l, o) => F('text', n, l, o);
+const nameF = (n, l, o) => F('text', n, l, Object.assign({ pattern: [RX.name, NAME_MSG] }, o));
+const date = (n, l, o) => F('date', n, l, o);
+const sel = (n, l, options, o) => F('select', n, l, Object.assign({ options }, o));
+const radio = (n, l, options, o) => F('radio', n, l, Object.assign({ options }, o));
+const phone = (n, l, o) => F('phone', n, l, o);
+const num = (n, l, o) => F('number', n, l, o);
+const file = (n, l, o) => F('file', n, l, Object.assign({ accept: '.pdf,.jpg,.jpeg,.png', hint: 'PDF, JPG or PNG · max 2 MB' }, o));
+const heading = (label, o) => F('heading', '_h' + (_auto++), label, o);
+const note = (html, o) => F('note', '_n' + (_auto++), html, o);
+const computed = (compute, o) => F('computed', '_c' + (_auto++), '', Object.assign({ compute, full: true }, o));
+
+function addressFields(prefix, mirror){
+  const m = (k, o = {}) => mirror ? Object.assign(o, { mirror: mirror + k, lockIf: d => !!d.same_addr }) : o;
+  return [
+    txt(prefix+'house', 'House / Flat no. & building', m('house', { required: true })),
+    txt(prefix+'street', 'Street / Area / Locality', m('street', { required: true })),
+    txt(prefix+'landmark', 'Landmark', m('landmark')),
+    txt(prefix+'city', 'City / Town / Village', m('city', { required: true })),
+    txt(prefix+'district', 'District', m('district', { required: true })),
+    sel(prefix+'state', 'State / Union Territory', STATES, m('state', { required: true })),
+    txt(prefix+'pin', 'PIN code', m('pin', { required: true, digits: true, maxlength: 6, inputmode: 'numeric',
+      validate: (v, d) => (d[prefix+'country'] || 'India').trim().toLowerCase() === 'india' && !RX.pin.test(v) ? 'Enter a valid 6-digit PIN code.' : '' })),
+    txt(prefix+'country', 'Country', m('country', { required: true, default: 'India' })),
+  ];
+}
+
+const eduReq = (d, r) => !!r._req || rowFilled(r);
+const shareTotal = d => (d.nominees || []).reduce((s, n) => s + (Number(n.share) || 0), 0);
+const totalExpMonths = d => (d.employers || []).reduce((s, r) => s + monthsBetween(r.doj, r.current ? todayStr() : r.dol), 0);
+const fullName = d => [d.first_name, d.middle_name, d.last_name].filter(x => x && x.trim()).join(' ');
+
+/* =====================================================================
+   FORM SCHEMA
+   Field options: required (bool | fn(data,row)), star, showIf(data,row), pattern [re,msg],
+   validate(v,data,row) -> msg, warn(v,data,row) -> msg, hint, hintFn, default, full,
+   upper, digits, sensitive, mask, noPaste, maxToday, hr (HR-only, disabled), mirror/lockIf.
+   ===================================================================== */
+const SECTIONS = [
+  { id: 'personal', title: 'Personal Details', short: 'Personal',
+    intro: 'Enter your name exactly as it appears on your official documents (Aadhaar / PAN / Passport).',
+    fields: [
+      heading('Full name as per official documents'),
+      nameF('first_name', 'First name', { required: true }),
+      nameF('middle_name', 'Middle name'),
+      nameF('last_name', 'Last name', { required: true }),
+      nameF('other_name', 'Previous / other name, if any', { hint: 'e.g. name before marriage' }),
+      heading('Personal information'),
+      date('dob', 'Date of birth', { required: true, maxToday: true,
+        validate: v => notFuture(v) || (ageOn(v) < 18 ? 'You must be at least 18 years old.' : ''),
+        hintFn: d => d.dob && ageOn(d.dob) >= 0 ? `Age: ${ageOn(d.dob)} years` : '' }),
+      txt('birth_place', 'Place of birth'),
+      radio('gender', 'Gender', ['Male','Female','Other','Prefer not to say'], { required: true, full: true }),
+      sel('marital', 'Marital status', ['Single','Married','Divorced','Widowed','Separated'], { required: true }),
+      date('marriage_date', 'Date of marriage', { showIf: d => d.marital === 'Married', maxToday: true,
+        validate: (v, d) => d.dob && v <= d.dob ? 'Date of marriage must be after date of birth.' : '' }),
+      sel('blood_group', 'Blood group', ['A+','A-','B+','B-','AB+','AB-','O+','O-',"Don't know"]),
+      sel('nationality', 'Nationality', ['Indian','Other'], { required: true, default: 'Indian' }),
+      txt('nationality_other', 'Specify nationality', { required: true, showIf: d => d.nationality === 'Other' }),
+      sel('religion', 'Religion (optional)', ['Hindu','Muslim','Christian','Sikh','Buddhist','Jain','Parsi','Other','Prefer not to say']),
+      sel('category', 'Category (optional)', ['General','OBC','SC','ST','EWS','Other']),
+      txt('mother_tongue', 'Mother tongue'),
+      F('repeat', 'languages', 'Languages known', { initial: () => [{}], addLabel: 'Add language', skipEmptyRow: true,
+        rowTitle: (r, i) => `Language ${i+1}`,
+        fields: [
+          txt('lang', 'Language', { required: (d, r) => !isEmpty(r.skills), star: true }),
+          F('checks', 'skills', 'Proficiency', { options: ['Read','Write','Speak'] }),
+        ] }),
+      heading('Other details'),
+      radio('disability', 'Person with disability?', YN, { default: 'No' }),
+      txt('disability_type', 'Type of disability', { required: true, showIf: d => d.disability === 'Yes' }),
+      num('disability_pct', 'Disability percentage (%)', { required: true, min: 1, max: 100, showIf: d => d.disability === 'Yes' }),
+      file('photo', 'Passport-size photograph', { required: true, accept: '.jpg,.jpeg,.png', preview: 'photo', hint: 'Recent colour photo · JPG or PNG · max 2 MB' }),
+    ] },
+
+  { id: 'contact', title: 'Contact Details', short: 'Contact',
+    fields: [
+      phone('mobile', 'Mobile number', { required: true }),
+      phone('alt_mobile', 'Alternate mobile number'),
+      F('checkbox', 'whatsapp_same', 'My WhatsApp number is the same as my mobile number', { default: true }),
+      phone('whatsapp', 'WhatsApp number', { mirror: 'mobile', lockIf: d => !!d.whatsapp_same }),
+      F('email', 'email', 'Personal email ID', { required: true, placeholder: 'name@example.com' }),
+      txt('landline', 'Landline (optional)', { pattern: [/^[0-9 +\-()]{6,20}$/, 'Enter a valid landline number.'], placeholder: 'e.g. 040-12345678' }),
+      F('url', 'linkedin', 'LinkedIn profile URL (optional)', { placeholder: 'https://www.linkedin.com/in/…' }),
+      F('url', 'portfolio', 'GitHub / portfolio URL (optional)', { placeholder: 'https://github.com/…' }),
+    ] },
+
+  { id: 'address', title: 'Address Details', short: 'Address',
+    fields: [
+      heading('A. Permanent address'),
+      ...addressFields('perm_'),
+      heading('B. Address for correspondence / current address'),
+      F('checkbox', 'same_addr', 'Same as permanent address'),
+      ...addressFields('corr_', 'perm_'),
+      heading('C. Residence details'),
+      sel('residence_type', 'Residence type at current address', ['Own','Rented','Family','Paying guest','Company-provided']),
+      F('month', 'stay_since', 'Staying at current address since', {
+        validate: v => v > todayStr().slice(0, 7) ? 'Date cannot be in the future.' : '' }),
+    ] },
+
+  { id: 'family', title: 'Family Details', short: 'Family',
+    fields: [
+      heading("Father's details"),
+      nameF('father_name', "Father's name", { required: true }),
+      date('father_dob', "Father's date of birth", { maxToday: true }),
+      txt('father_occ', "Father's occupation"),
+      radio('father_status', 'Status', ['Living','Deceased'], { default: 'Living' }),
+      phone('father_phone', "Father's contact number", { showIf: d => d.father_status !== 'Deceased' }),
+      heading("Mother's details"),
+      nameF('mother_name', "Mother's name", { required: true }),
+      date('mother_dob', "Mother's date of birth", { maxToday: true }),
+      txt('mother_occ', "Mother's occupation"),
+      radio('mother_status', 'Status', ['Living','Deceased'], { default: 'Living' }),
+      phone('mother_phone', "Mother's contact number", { showIf: d => d.mother_status !== 'Deceased' }),
+      heading('Spouse details', { showIf: d => d.marital === 'Married' }),
+      nameF('spouse_name', "Spouse's name", { required: true, showIf: d => d.marital === 'Married' }),
+      date('spouse_dob', "Spouse's date of birth", { maxToday: true, showIf: d => d.marital === 'Married' }),
+      txt('spouse_occ', "Spouse's occupation", { showIf: d => d.marital === 'Married' }),
+      txt('spouse_employer', "Spouse's employer", { showIf: d => d.marital === 'Married' }),
+      phone('spouse_phone', "Spouse's contact number", { showIf: d => d.marital === 'Married' }),
+      F('repeat', 'children', 'Children', { addLabel: 'Add child', emptyText: 'No children added.', rowTitle: (r, i) => `Child ${i+1}`,
+        fields: [
+          nameF('name', 'Name', { required: true }),
+          sel('gender', 'Gender', ['Male','Female','Other']),
+          date('dob', 'Date of birth', { required: true, maxToday: true }),
+        ] }),
+      F('repeat', 'siblings', 'Siblings', { addLabel: 'Add sibling', emptyText: 'No siblings added.', rowTitle: (r, i) => `Sibling ${i+1}`,
+        fields: [
+          nameF('name', 'Name', { required: true }),
+          sel('relation', 'Relationship', ['Brother','Sister'], { required: true }),
+          num('age', 'Age', { min: 0, max: 120 }),
+          txt('occupation', 'Occupation'),
+        ] }),
+      heading('Dependents for medical insurance'),
+      F('dynchecks', 'dependents', 'Select family members to be covered under group medical insurance', { full: true,
+        empty: 'Enter family member names above to see them here.',
+        options: d => {
+          const o = [];
+          if (d.father_name && d.father_status !== 'Deceased') o.push(`Father – ${d.father_name}`);
+          if (d.mother_name && d.mother_status !== 'Deceased') o.push(`Mother – ${d.mother_name}`);
+          if (d.marital === 'Married' && d.spouse_name) o.push(`Spouse – ${d.spouse_name}`);
+          (d.children || []).forEach(c => { if (c.name) o.push(`Child – ${c.name}`); });
+          return o;
+        } }),
+    ] },
+
+  { id: 'nominee', title: 'Nominee Details', short: 'Nominees',
+    intro: 'Nominees for Provident Fund (PF), Gratuity and Group Insurance. You may add more than one nominee.',
+    validate: d => shareTotal(d) !== 100 ? `Nominee shares must total exactly 100% (currently ${shareTotal(d)}%).` : '',
+    fields: [
+      F('repeat', 'nominees', 'Nominees', { min: 1, initial: () => [{}], addLabel: 'Add nominee', rowTitle: (r, i) => `Nominee ${i+1}`,
+        fields: [
+          nameF('name', 'Nominee name', { required: true }),
+          sel('relation', 'Relationship', RELATIONS, { required: true }),
+          date('dob', 'Date of birth', { required: true, maxToday: true,
+            hintFn: (d, r) => r.dob && ageOn(r.dob) >= 0 ? `Age: ${ageOn(r.dob)} years${isMinor(r.dob) ? ' – minor, guardian details required' : ''}` : '' }),
+          phone('phone', 'Contact number'),
+          txt('address', 'Address', { full: true }),
+          num('share', 'Share (%)', { required: true, min: 1, max: 100 }),
+          nameF('guardian_name', 'Guardian name', { required: true, showIf: (d, r) => isMinor(r.dob) }),
+          txt('guardian_relation', 'Guardian relationship with nominee', { required: true, showIf: (d, r) => isMinor(r.dob) }),
+        ] }),
+      computed(d => { const t = shareTotal(d);
+        return `<div class="total ${t === 100 ? 'ok' : 'bad'}">Total share allocated: <b>${t}%</b> ${t === 100 ? '✓' : '— must equal 100%'}</div>`; }),
+    ] },
+
+  { id: 'emergency', title: 'Emergency Contacts', short: 'Emergency',
+    fields: [
+      heading('Emergency contact 1'),
+      nameF('ec1_name', 'Name', { required: true }),
+      txt('ec1_rel', 'Relationship', { required: true }),
+      phone('ec1_mobile', 'Mobile number', { required: true }),
+      phone('ec1_alt', 'Alternate mobile number'),
+      F('textarea', 'ec1_addr', 'Address', { full: true }),
+      heading('Emergency contact 2 (optional)'),
+      nameF('ec2_name', 'Name'),
+      txt('ec2_rel', 'Relationship'),
+      phone('ec2_mobile', 'Mobile number'),
+      phone('ec2_alt', 'Alternate mobile number'),
+      F('textarea', 'ec2_addr', 'Address', { full: true }),
+      heading('Medical information'),
+      note('<strong>Confidential.</strong> This information is shared only with HR and used only in a medical emergency.', { tone: 'conf' }),
+      F('textarea', 'medical', 'Known medical conditions / allergies (optional)', { full: true, rows: 3 }),
+    ] },
+
+  { id: 'education', title: 'Educational Qualifications', short: 'Education',
+    fields: [
+      F('repeat', 'education', 'Academic qualifications', {
+        sub: '10th, 12th / Diploma and Graduation are mandatory. Fill Post-graduation / Doctorate only if applicable – leave those rows blank otherwise.',
+        initial: () => [
+          { level: '10th / SSC', _req: true, score_type: 'Percentage', mode: 'Full-time' },
+          { level: '12th / Intermediate / Diploma', _req: true, score_type: 'Percentage', mode: 'Full-time' },
+          { level: 'Graduation', _req: true, score_type: 'Percentage', mode: 'Full-time' },
+          { level: 'Post-graduation', score_type: 'Percentage' },
+          { level: 'Doctorate / Other', score_type: 'Percentage' },
+        ],
+        newRow: () => ({ score_type: 'Percentage' }), canRemove: r => !r._req, skipEmptyRow: true,
+        addLabel: 'Add qualification', rowTitle: (r, i) => r.level || `Qualification ${i+1}`,
+        fields: [
+          txt('level', 'Qualification / Degree', { required: eduReq, star: true }),
+          txt('spec', 'Specialization / Stream / Branch'),
+          txt('institute', 'School / College name', { required: eduReq, star: true }),
+          txt('board', 'Board / University', { required: eduReq, star: true }),
+          sel('mode', 'Mode', ['Full-time','Part-time','Distance']),
+          num('yoj', 'Year of joining', { min: 1950, max: CY + 1 }),
+          num('yop', 'Year of passing', { required: eduReq, star: true, min: 1950, max: CY + 6,
+            validate: (v, d, r) => r.yoj && Number(v) < Number(r.yoj) ? 'Year of passing cannot be earlier than year of joining.' : '' }),
+          sel('score_type', 'Score type', ['Percentage','CGPA']),
+          sel('cgpa_scale', 'CGPA out of', ['10','5','4'], { required: eduReq, star: true, showIf: (d, r) => r.score_type === 'CGPA' }),
+          num('score', 'Percentage / CGPA', { required: eduReq, star: true, step: '0.01',
+            validate: (v, d, r) => { const n = Number(v), max = r.score_type === 'CGPA' ? Number(r.cgpa_scale || 10) : 100;
+              return n < 0 || n > max ? `Enter a value between 0 and ${max}.` : ''; } }),
+          radio('backlogs', 'Backlogs / arrears pending?', YN),
+          file('cert', 'Certificate / marksheet'),
+        ] }),
+      F('repeat', 'certs', 'Certifications / courses / trainings', { addLabel: 'Add certification', emptyText: 'No certifications added.',
+        rowTitle: (r, i) => r.name || `Certification ${i+1}`,
+        fields: [
+          txt('name', 'Certification / course name', { required: true }),
+          txt('org', 'Issuing organisation'),
+          num('year', 'Year', { min: 1950, max: CY }),
+          F('month', 'valid_till', 'Valid till'),
+          file('file', 'Certificate upload'),
+        ] }),
+      heading('Skills & achievements'),
+      F('tags', 'tech_skills', 'Technical skills', { full: true, placeholder: 'e.g. Python, SQL, Machine Learning – press Enter after each' }),
+      F('tags', 'soft_skills', 'Soft skills', { full: true, placeholder: 'e.g. Communication, Leadership – press Enter after each' }),
+      F('textarea', 'achievements', 'Academic projects, publications or achievements (optional)', { full: true, rows: 3 }),
+    ] },
+
+  { id: 'employment', title: 'Employment History', short: 'Employment',
+    fields: [
+      radio('fresher', 'Are you a fresher?', YN, { required: true, full: true }),
+      F('repeat', 'employers', 'Previous employers (latest first)', { min: 1, initial: () => [{}], showIf: d => d.fresher === 'No',
+        addLabel: 'Add employer', rowTitle: (r, i) => r.company || `Employer ${i+1}`,
+        fields: [
+          txt('company', 'Company name', { required: true }),
+          txt('designation', 'Designation', { required: true }),
+          sel('emp_type', 'Employment type', ['Full-time','Contract','Intern']),
+          txt('location', 'Location'),
+          date('doj', 'Date of joining', { required: true, maxToday: true }),
+          F('checkbox', 'current', 'I am currently working here'),
+          date('dol', 'Date of leaving', { required: true, maxToday: true, showIf: (d, r) => !r.current,
+            validate: (v, d, r) => r.doj && v < r.doj ? 'Date of leaving cannot be before date of joining.' : '' }),
+          num('ctc', 'Last drawn CTC (annual, ₹)', { required: true, min: 0 }),
+          F('textarea', 'reason', 'Reason for leaving', { required: true, full: true }),
+          txt('mgr', 'Reporting manager name & contact'),
+          F('email', 'hr_email', 'HR contact email'),
+          file('offer', 'Offer letter'),
+          file('relieve', 'Relieving / experience letter', { showIf: (d, r) => !r.current }),
+          file('payslips', 'Last 3 payslips (single PDF)', { accept: '.pdf' , hint: 'PDF · max 2 MB' }),
+        ] }),
+      computed(d => `<div class="total ok">Total experience: <b>${fmtYM(totalExpMonths(d))}</b> (calculated from the dates above)</div>`,
+        { showIf: d => d.fresher === 'No', review: 'Total experience', reviewVal: d => fmtYM(totalExpMonths(d)) }),
+      radio('gap', 'Career gap of more than 3 months?', YN, { showIf: d => d.fresher === 'No' }),
+      F('textarea', 'gap_reason', 'Reason for career gap', { required: true, full: true, showIf: d => d.fresher === 'No' && d.gap === 'Yes' }),
+      F('repeat', 'references', 'Professional references', { initial: () => [{}, {}], max: 2, showIf: d => d.fresher === 'No', skipEmptyRow: true,
+        addLabel: 'Add reference', rowTitle: (r, i) => `Reference ${i+1}`,
+        fields: [
+          nameF('name', 'Name'),
+          txt('designation', 'Designation'),
+          txt('company', 'Company'),
+          phone('phone', 'Phone'),
+          F('email', 'email', 'Email'),
+          txt('how', 'How do they know you?'),
+        ] }),
+    ] },
+
+  { id: 'identity', title: 'Identity & Statutory Details', short: 'Identity',
+    intro: 'Sensitive numbers are hidden as you type – use "Show" to check what you entered.',
+    fields: [
+      heading('Aadhaar & PAN'),
+      txt('aadhaar', 'Aadhaar number', { required: true, sensitive: true, digits: true, maxlength: 12, inputmode: 'numeric', mask: 'aadhaar',
+        pattern: [RX.aadhaar, 'Enter a valid 12-digit Aadhaar number.'] }),
+      file('aadhaar_file', 'Aadhaar card copy', { required: true }),
+      txt('pan', 'PAN', { required: true, upper: true, maxlength: 10, mask: 'last4', pattern: [RX.pan, 'Enter a valid PAN (format AAAAA9999A).'] }),
+      file('pan_file', 'PAN card copy', { required: true }),
+      nameF('pan_name', 'Name exactly as on PAN', { required: true, full: true }),
+      heading('Passport & other IDs (optional)'),
+      txt('passport_no', 'Passport number', { upper: true, maxlength: 9, pattern: [/^[A-Z][0-9]{7}$/, 'Enter a valid passport number (e.g. A1234567).'] }),
+      txt('passport_place', 'Place of issue', { showIf: d => !isEmpty(d.passport_no) }),
+      date('passport_issue', 'Date of issue', { maxToday: true, required: true, showIf: d => !isEmpty(d.passport_no) }),
+      date('passport_expiry', 'Date of expiry', { required: true, showIf: d => !isEmpty(d.passport_no),
+        validate: (v, d) => d.passport_issue && v <= d.passport_issue ? 'Expiry date must be after the date of issue.' : '' }),
+      file('passport_file', 'Passport copy (first & last page)', { showIf: d => !isEmpty(d.passport_no) }),
+      txt('dl_no', 'Driving licence number', { upper: true }),
+      date('dl_expiry', 'Driving licence expiry', { showIf: d => !isEmpty(d.dl_no) }),
+      txt('voter_id', 'Voter ID', { upper: true }),
+      heading('PF / ESIC'),
+      txt('uan', 'UAN (Universal Account Number)', { digits: true, maxlength: 12, inputmode: 'numeric', hint: 'If you were previously employed',
+        pattern: [/^\d{12}$/, 'UAN must be 12 digits.'] }),
+      txt('pf_no', 'Previous PF account number', { upper: true }),
+      txt('esic', 'ESIC number (if applicable)', { digits: true, maxlength: 17, inputmode: 'numeric', pattern: [/^\d{10,17}$/, 'Enter a valid ESIC number.'] }),
+      heading('Work authorisation', { showIf: d => d.nationality === 'Other' }),
+      txt('visa_type', 'Visa / work-permit type', { required: true, showIf: d => d.nationality === 'Other' }),
+      txt('visa_no', 'Visa / work-permit number', { required: true, upper: true, showIf: d => d.nationality === 'Other' }),
+      date('visa_expiry', 'Visa / work-permit expiry', { required: true, showIf: d => d.nationality === 'Other',
+        validate: v => v < todayStr() ? 'Your visa / work permit has expired.' : '' }),
+    ] },
+
+  { id: 'bank', title: 'Bank Details', short: 'Bank',
+    intro: 'Your salary will be credited to this account. The account must be in your own name.',
+    fields: [
+      nameF('acc_name', 'Account holder name', { required: true, full: true,
+        warn: (v, d) => d.pan_name && v.trim().toLowerCase() !== d.pan_name.trim().toLowerCase() ? '⚠ This differs from the name on your PAN – please double-check.' : '' }),
+      txt('bank_name', 'Bank name', { required: true }),
+      txt('branch', 'Branch name', { required: true }),
+      txt('acc_no', 'Account number', { required: true, sensitive: true, digits: true, maxlength: 18, inputmode: 'numeric', mask: 'last4',
+        pattern: [/^\d{9,18}$/, 'Account number must be 9 to 18 digits.'] }),
+      txt('acc_no_confirm', 'Confirm account number', { required: true, sensitive: true, digits: true, maxlength: 18, inputmode: 'numeric', noPaste: true, noReview: true,
+        hint: 'Please re-type – pasting is disabled', validate: (v, d) => v !== d.acc_no ? 'Account numbers do not match.' : '' }),
+      txt('ifsc', 'IFSC code', { required: true, upper: true, maxlength: 11, pattern: [RX.ifsc, 'Enter a valid IFSC (e.g. SBIN0001234).'] }),
+      sel('acc_type', 'Account type', ['Savings','Salary','Current']),
+      file('bank_proof', 'Cancelled cheque / first page of passbook', { required: true, full: true }),
+    ] },
+
+  { id: 'joining', title: 'Joining Details', short: 'Joining',
+    fields: [
+      txt('position', 'Position / designation offered', { required: true }),
+      txt('department', 'Department / team', { required: true }),
+      txt('work_location', 'Work location', { required: true }),
+      txt('offer_ref', 'Offer letter reference number'),
+      date('offer_accept', 'Date of offer acceptance', { maxToday: true }),
+      date('doj', 'Date of joining', { required: true }),
+      radio('referred', 'Referred by a TCAI employee?', YN),
+      nameF('ref_emp_name', 'Referring employee name', { required: true, showIf: d => d.referred === 'Yes' }),
+      txt('ref_emp_id', 'Referring employee ID', { required: true, upper: true, showIf: d => d.referred === 'Yes' }),
+      sel('source', 'How did you hear about TCAI?', ['Job portal','LinkedIn','Referral','Campus','Consultant','Company website','Other']),
+      heading('Preferences (optional)'),
+      sel('laptop', 'Laptop OS preference', ['Windows','macOS','Linux','No preference']),
+      sel('tshirt', 'T-shirt size', ['XS','S','M','L','XL','XXL','XXXL']),
+      sel('food', 'Food preference', ['Vegetarian','Non-vegetarian','Vegan','Jain','Eggetarian']),
+      heading('HR use only', { hr: true, cls: 'hr-head' }),
+      note('<strong>To be filled by HR.</strong> Candidates cannot edit these fields.', { tone: 'hr', hr: true }),
+      txt('hr_emp_id', 'Employee ID', { hr: true, placeholder: 'To be filled by HR' }),
+      F('email', 'hr_official_email', 'Official email ID', { hr: true, placeholder: 'To be filled by HR' }),
+      txt('hr_manager', 'Reporting manager', { hr: true, placeholder: 'To be filled by HR' }),
+      sel('hr_emp_type', 'Employment type', ['Permanent','Probation','Contract','Intern'], { hr: true }),
+      txt('hr_probation', 'Probation period', { hr: true, placeholder: 'To be filled by HR' }),
+      txt('hr_ctc', 'CTC', { hr: true, placeholder: 'To be filled by HR' }),
+      F('checks', 'hr_docs', 'Documents verified', { hr: true, full: true, options: ['ID proof','Address proof','Education','Experience','Bank','PAN','Photographs'] }),
+      txt('hr_verified_by', 'Verified by', { hr: true, placeholder: 'To be filled by HR' }),
+      date('hr_verified_on', 'Verification date', { hr: true }),
+    ] },
+
+  { id: 'documents', title: 'Document Checklist', short: 'Documents',
+    intro: 'The checklist below updates as you upload documents in earlier sections. You can add the remaining documents here.',
+    fields: [
+      file('address_proof', 'Address proof (if different from Aadhaar)'),
+      file('offer_signed', 'Signed TCAI offer letter'),
+      file('medical_cert', 'Medical fitness certificate (if required)'),
+      computed(d => {
+        const it = checklist(d), exp = it.filter(x => x.req), done = exp.filter(x => x.ok).length;
+        const pct = exp.length ? Math.round(done / exp.length * 100) : 100;
+        return `<div class="cl-head"><strong>${done} of ${exp.length} expected documents uploaded</strong><span>${pct}%</span></div>
+          <div class="progress big"><div style="width:${pct}%"></div></div>
+          <ul class="checklist">${it.map(x => `<li class="${x.ok ? 'ok' : (x.req ? 'pending' : 'opt')}"><span class="badge">${x.ok ? 'Uploaded' : (x.req ? 'Pending' : 'Optional')}</span>${esc(x.label)}</li>`).join('')}</ul>
+          <p class="muted" style="margin-top:10px">Pending documents can be submitted to HR on your date of joining. Please bring originals of all documents for verification.</p>`;
+      }, { review: 'Documents uploaded', reviewVal: d => { const e = checklist(d).filter(x => x.req); return `${e.filter(x => x.ok).length} of ${e.length}`; } }),
+    ] },
+
+  { id: 'declaration', title: 'Declarations & Consent', short: 'Declaration',
+    fields: [
+      radio('criminal', 'Is any criminal case or legal proceeding pending against you?', YN, { required: true, full: true }),
+      F('textarea', 'criminal_details', 'Please provide details', { required: true, full: true, showIf: d => d.criminal === 'Yes' }),
+      radio('prev_tcai', 'Have you previously worked with or applied to TCAI?', YN, { required: true, full: true }),
+      F('textarea', 'prev_tcai_details', 'Please provide details (role, period, employee ID if any)', { required: true, full: true, showIf: d => d.prev_tcai === 'Yes' }),
+      radio('relatives', 'Do you have relatives working at TCAI?', YN, { full: true }),
+      nameF('relative_name', 'Relative name', { required: true, showIf: d => d.relatives === 'Yes' }),
+      txt('relative_relation', 'Relationship', { required: true, showIf: d => d.relatives === 'Yes' }),
+      heading('Declarations'),
+      F('checkbox', 'decl_true', 'I declare that the information given above is true, complete and correct to the best of my knowledge. I understand that any false information or concealment of facts may lead to cancellation of my offer or termination of my employment without notice.', { required: true }),
+      F('checkbox', 'decl_bgv', 'I consent to TCAI or its authorised agency verifying my education, employment, address, identity and criminal record.', { required: true }),
+      F('checkbox', 'decl_dpdp', 'I consent to TCAI processing my personal data for employment purposes in line with the Digital Personal Data Protection Act, 2023.', { required: true }),
+      F('checkbox', 'decl_conduct', "I agree to abide by TCAI's code of conduct, policies and confidentiality obligations.", { required: true }),
+      heading('Signature'),
+      txt('place', 'Place', { required: true }),
+      date('sign_date', 'Date', { readonly: true }),
+      txt('esign', 'Full name as e-signature', { required: true, hint: 'Type your full name exactly as entered in Section 1',
+        validate: (v, d) => {
+          const n = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+          return [fullName(d), [d.first_name, d.last_name].filter(Boolean).join(' ')].map(n).includes(n(v))
+            ? '' : 'E-signature must match your name as entered in Personal Details.'; } }),
+      file('signature', 'Signature image (optional)', { accept: '.jpg,.jpeg,.png', preview: 'sig', hint: 'JPG or PNG · max 2 MB' }),
+    ] },
+];
+
+/* Documents expected from the candidate (used by the checklist) */
+function checklist(d){
+  const it = [], add = (label, ok, req = true) => it.push({ label, ok: !!ok, req });
+  add('Passport-size photograph', files.photo);
+  add('Aadhaar card', files.aadhaar_file);
+  add('PAN card', files.pan_file);
+  add('Address proof', files.address_proof || files.aadhaar_file, false);
+  (d.education || []).forEach((r, i) => { if (eduReq(d, r)) add(`${r.level || 'Qualification ' + (i+1)} – certificate`, files[`education.${i}.cert`]); });
+  if (d.fresher === 'No') (d.employers || []).forEach((r, i) => {
+    const n = r.company || `Employer ${i+1}`;
+    if (!r.current) add(`Relieving / experience letter – ${n}`, files[`employers.${i}.relieve`]);
+    add(`Payslips – ${n}`, files[`employers.${i}.payslips`]);
+  });
+  add('Bank proof (cheque / passbook)', files.bank_proof);
+  if (!isEmpty(d.passport_no)) add('Passport copy', files.passport_file);
+  add('Signed TCAI offer letter', files.offer_signed, false);
+  add('Medical fitness certificate', files.medical_cert, false);
+  return it;
+}
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+let data = {}, files = {}, step = 0, maxStep = 0, submitted = null;
+const $ = id => document.getElementById(id);
+const formArea = $('formArea'), stepperEl = $('stepper'), actionsEl = $('actions');
+const urlCache = new WeakMap();
+const objURL = f => { if (!urlCache.has(f)) urlCache.set(f, URL.createObjectURL(f)); return urlCache.get(f); };
+
+function getP(p){ const s = p.split('.'); if (s.length === 1) return data[p]; const r = (data[s[0]] || [])[+s[1]]; return r ? r[s[2]] : undefined; }
+function setP(p, v){ const s = p.split('.'); if (s.length === 1) { data[p] = v; return; }
+  data[s[0]] = data[s[0]] || []; data[s[0]][+s[1]] = data[s[0]][+s[1]] || {}; data[s[0]][+s[1]][s[2]] = v; }
+
+function initDefaults(){
+  SECTIONS.forEach(s => s.fields.forEach(fd => {
+    if (fd.type === 'repeat') { if (!Array.isArray(data[fd.name])) data[fd.name] = fd.initial ? fd.initial() : []; }
+    else if (fd.default !== undefined && data[fd.name] === undefined) data[fd.name] = fd.default;
+  }));
+  data.sign_date = todayStr();
+}
+
+function applyMirrors(){
+  SECTIONS.forEach(s => s.fields.forEach(fd => {
+    if (fd.mirror && fd.lockIf && fd.lockIf(data)) {
+      data[fd.name] = data[fd.mirror];
+      if (fd.type === 'phone') data[fd.name + '_cc'] = data[fd.mirror + '_cc'];
+    }
+  }));
+}
+
+/* Iterate every field of a section (including repeat rows) */
+function walk(s, cb){
+  s.fields.forEach(fd => {
+    cb({ def: fd, path: fd.name, row: null, parent: null });
+    if (fd.type === 'repeat') (data[fd.name] || []).forEach((row, i) =>
+      fd.fields.forEach(cf => cb({ def: cf, path: `${fd.name}.${i}.${cf.name}`, row, parent: fd })));
+  });
+}
+function isVisible(e){
+  if (e.parent && e.parent.showIf && !e.parent.showIf(data)) return false;
+  return !e.def.showIf || !!e.def.showIf(data, e.row || {});
+}
+function entryFor(p){ if (step >= SECTIONS.length) return null; let f = null; walk(SECTIONS[step], e => { if (e.path === p) f = e; }); return f; }
+
+/* =====================================================================
+   VALIDATION
+   ===================================================================== */
+function validateEntry(e){
+  const d = e.def;
+  if (!isVisible(e) || d.hr || ['heading','note','computed'].includes(d.type)) return '';
+  if (d.type === 'repeat') { const n = (data[d.name] || []).length; return d.min && n < d.min ? `Please add at least ${d.min} entr${d.min > 1 ? 'ies' : 'y'}.` : ''; }
+  const v = d.type === 'file' ? files[e.path] : getP(e.path), r = e.row || {};
+  const req = typeof d.required === 'function' ? d.required(data, r) : !!d.required;
+  if (isEmpty(v)) {
+    if (!req) return '';
+    if (d.type === 'checkbox') return 'Please tick this box to continue.';
+    if (d.type === 'file') return 'Please upload this document.';
+    if (['radio','select','checks','dynchecks'].includes(d.type)) return 'Please select an option.';
+    return 'This field is required.';
+  }
+  if (d.type === 'file' || d.type === 'checkbox') return '';
+  const s = typeof v === 'string' ? v.trim() : v;
+  if (d.pattern && !d.pattern[0].test(s)) return d.pattern[1];
+  if (d.type === 'email' && !RX.email.test(s)) return 'Enter a valid email address.';
+  if (d.type === 'url') { try { const u = new URL(s); if (!/^https?:$/.test(u.protocol)) throw 0; } catch (_) { return 'Enter a valid URL starting with http:// or https://'; } }
+  if (d.type === 'phone') {
+    const cc = getP(e.path + '_cc') || '+91';
+    if (cc === '+91' ? !RX.mobile.test(s) : !/^\d{6,15}$/.test(s))
+      return cc === '+91' ? 'Enter a valid 10-digit Indian mobile number.' : 'Enter a valid phone number (6–15 digits).';
+  }
+  if (d.type === 'number') {
+    const n = Number(s);
+    if (!isFinite(n)) return 'Enter a valid number.';
+    if (d.min != null && n < d.min) return `Minimum value is ${d.min}.`;
+    if (d.max != null && n > d.max) return `Maximum value is ${d.max}.`;
+  }
+  if (d.type === 'date' && d.maxToday && s > todayStr()) return 'Date cannot be in the future.';
+  return d.validate ? (d.validate(s, data, r) || '') : '';
+}
+
+function sectionErrors(i){
+  applyMirrors();
+  const errs = [];
+  walk(SECTIONS[i], e => { const m = validateEntry(e); if (m) errs.push({ path: e.path, msg: m }); });
+  return { errs, sec: SECTIONS[i].validate ? SECTIONS[i].validate(data) : '' };
+}
+
+function showErr(p, msg){
+  const el = formArea.querySelector(`[data-err="${p}"]`); if (el) el.textContent = msg || '';
+  const w = formArea.querySelector(`[data-w="${p}"]`); if (w) w.classList.toggle('invalid', !!msg);
+  formArea.querySelectorAll(`[data-path="${p}"]`).forEach(i => i.setAttribute('aria-invalid', msg ? 'true' : 'false'));
+}
+const hasErr = p => !!(formArea.querySelector(`[data-err="${p}"]`) || {}).textContent;
+
+function validateCurrent(){
+  const { errs, sec } = sectionErrors(step);
+  formArea.querySelectorAll('[data-err]').forEach(x => { x.textContent = ''; });
+  formArea.querySelectorAll('.invalid').forEach(x => x.classList.remove('invalid'));
+  errs.forEach(x => showErr(x.path, x.msg));
+  const box = $('secErr');
+  const msg = [errs.length ? `Please fix ${errs.length} highlighted field${errs.length > 1 ? 's' : ''} before continuing.` : '', sec].filter(Boolean).join(' ');
+  if (box) { box.textContent = msg; box.hidden = !msg; }
+  if (errs.length) {
+    const w = formArea.querySelector(`[data-w="${errs[0].path}"]`);
+    if (w) { w.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const f = w.querySelector('input:not(:disabled),select:not(:disabled),textarea:not(:disabled)'); if (f) f.focus({ preventScroll: true }); }
+  } else if (sec && box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return !msg;
+}
+
+/* =====================================================================
+   RENDERING
+   ===================================================================== */
+function renderField(def, rep, idx, row){
+  const p = rep ? `${rep}.${idx}.${def.name}` : def.name;
+  const v = getP(p);
+  const id = 'f_' + p.replace(/\./g, '_');
+  const star = (def.required === true || def.star) ? '<span class="req" aria-hidden="true">*</span>' : '';
+  const dis = def.hr ? 'disabled' : '';
+  const common = `id="${id}" data-path="${p}" ${dis} ${def.readonly ? 'readonly' : ''}`;
+  const full = def.full ? ' full' : '';
+  let ctrl = '', extraAttr = '';
+
+  switch (def.type) {
+    case 'heading':
+      return `<div class="field full heading ${def.cls || ''}" data-w="${p}"><h3>${esc(def.label)}</h3></div>`;
+    case 'note':
+      return `<div class="field full" data-w="${p}"><p class="note ${def.tone || ''}">${def.label}</p></div>`;
+    case 'computed':
+      return `<div class="field full" data-w="${p}"><div data-computed="${p}"></div></div>`;
+    case 'checkbox':
+      return `<div class="field full checkbox-field" data-w="${p}"><label class="choice"><input type="checkbox" ${common} ${v ? 'checked' : ''}><span>${esc(def.label)}${star}</span></label><div class="err" data-err="${p}" role="alert"></div></div>`;
+    case 'text': case 'email': case 'url': case 'number': case 'date': case 'month': {
+      const t = def.sensitive ? 'password' : def.type;
+      const attrs = [
+        def.placeholder && `placeholder="${esc(def.placeholder)}"`, def.maxlength && `maxlength="${def.maxlength}"`,
+        def.inputmode && `inputmode="${def.inputmode}"`, def.upper && 'data-upper="1"', def.digits && 'data-digits="1"',
+        def.noPaste && 'data-nopaste="1"', def.step && `step="${def.step}"`,
+        def.type === 'number' && def.min != null && `min="${def.min}"`, def.type === 'number' && def.max != null && `max="${def.max}"`,
+        def.maxToday && `max="${todayStr()}"`, `autocomplete="${def.sensitive ? 'off' : 'on'}"`,
+      ].filter(Boolean).join(' ');
+      ctrl = `<input type="${t}" ${common} value="${esc(v)}" ${attrs}>`;
+      if (def.sensitive) ctrl = `<div class="input-group">${ctrl}<button type="button" class="btn-ghost sm" data-act="sens" data-target="${id}" aria-label="Show or hide ${esc(def.label)}">Show</button></div>`;
+      break;
+    }
+    case 'textarea':
+      ctrl = `<textarea ${common} rows="${def.rows || 2}">${esc(v)}</textarea>`; break;
+    case 'select': {
+      ctrl = `<select ${common}><option value="">— Select —</option>${def.options.map(o => `<option value="${esc(o)}"${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+      break;
+    }
+    case 'radio':
+      ctrl = `<div class="choice-row" role="radiogroup" aria-label="${esc(def.label)}">${def.options.map((o, i) =>
+        `<label class="choice"><input type="radio" id="${i ? id + '_' + i : id}" name="${p}" value="${esc(o)}" data-path="${p}" ${o === v ? 'checked' : ''} ${dis}>${esc(o)}</label>`).join('')}</div>`;
+      break;
+    case 'checks': case 'dynchecks': {
+      const opts = def.type === 'dynchecks' ? def.options(data) : def.options;
+      const arr = Array.isArray(v) ? v : [];
+      if (def.type === 'dynchecks') extraAttr = ` data-sig="${esc(opts.join('|'))}"`;
+      ctrl = opts.length
+        ? `<div class="choice-row">${opts.map((o, i) => `<label class="choice"><input type="checkbox" id="${i ? id + '_' + i : id}" data-path="${p}" data-multi="1" value="${esc(o)}" ${arr.includes(o) ? 'checked' : ''} ${dis}>${esc(o)}</label>`).join('')}</div>`
+        : `<p class="muted">${esc(def.empty || 'No options available.')}</p>`;
+      break;
+    }
+    case 'phone': {
+      const cc = getP(p + '_cc') || '+91';
+      ctrl = `<div class="input-group"><select class="cc" data-path="${p}_cc" aria-label="Country code for ${esc(def.label)}" ${dis}>${COUNTRY_CODES.map(c => `<option${c === cc ? ' selected' : ''}>${c}</option>`).join('')}</select>` +
+             `<input type="tel" ${common} value="${esc(v)}" inputmode="numeric" maxlength="15" data-digits="1" autocomplete="tel-national"></div>`;
+      break;
+    }
+    case 'file': {
+      const fl = files[p];
+      ctrl = `<div class="file-box"><input type="file" ${common} accept="${def.accept}">` +
+        (fl ? `<div class="file-chip"><span>📎 ${esc(fl.name)} (${Math.max(1, Math.round(fl.size / 1024))} KB)</span><button type="button" class="btn-link danger" data-act="rmfile" data-path="${p}">Remove</button></div>` : '') +
+        (fl && def.preview ? `<img class="${def.preview === 'sig' ? 'sig-preview' : 'photo-preview'}" src="${objURL(fl)}" alt="Preview of ${esc(def.label)}">` : '') + `</div>`;
+      break;
+    }
+    case 'tags': {
+      const arr = Array.isArray(v) ? v : [];
+      ctrl = `<div class="tags" data-tags="${p}">${arr.map((t, i) => tagHTML(p, t, i)).join('')}<input type="text" id="${id}" data-tag="${p}" placeholder="${esc(def.placeholder || 'Type and press Enter')}"></div>`;
+      break;
+    }
+  }
+  const lbl = def.label ? `<label for="${id}">${esc(def.label)}${star}</label>` : '';
+  return `<div class="field${full}" data-w="${p}"${extraAttr}>${lbl}${ctrl}<div class="hint" data-hint="${p}">${esc(def.hint || '')}</div><div class="warn" data-warn="${p}"></div><div class="err" data-err="${p}" role="alert"></div></div>`;
+}
+const tagHTML = (p, t, i) => `<span class="tag">${esc(t)}<button type="button" data-act="tagdel" data-path="${p}" data-i="${i}" aria-label="Remove ${esc(t)}">×</button></span>`;
+
+function renderRepeat(def){
+  const rows = data[def.name] || (data[def.name] = []);
+  const canAdd = !def.max || rows.length < def.max;
+  return `<div class="field full repeat" data-w="${def.name}">
+    <div class="heading"><h3>${esc(def.label)}${def.min ? '<span class="req">*</span>' : ''}</h3></div>
+    ${def.sub ? `<p class="muted">${esc(def.sub)}</p>` : ''}
+    ${rows.length ? '' : `<p class="muted">${esc(def.emptyText || 'None added.')}</p>`}
+    ${rows.map((row, i) => {
+      const removable = (def.canRemove ? def.canRemove(row, i) : true) && rows.length > (def.min || 0);
+      return `<div class="rep-row"><div class="rep-row-head"><strong>${esc(def.rowTitle ? def.rowTitle(row, i) : '#' + (i+1))}</strong>` +
+        (removable ? `<button type="button" class="btn-link danger" data-act="del" data-rep="${def.name}" data-idx="${i}">Remove</button>` : '') +
+        `</div><div class="grid">${def.fields.map(fd => renderField(fd, def.name, i, row)).join('')}</div></div>`;
+    }).join('')}
+    ${canAdd ? `<button type="button" class="btn-ghost sm" data-act="add" data-rep="${def.name}">+ ${esc(def.addLabel || 'Add')}</button>` : ''}
+    <div class="err" data-err="${def.name}" role="alert"></div></div>`;
+}
+
+function render(){
+  renderStepper();
+  if (submitted) renderConfirm();
+  else if (step === SECTIONS.length) renderReview();
+  else {
+    const s = SECTIONS[step];
+    applyMirrors();
+    formArea.innerHTML = `<h2 class="sec-title">${step + 1}. ${esc(s.title)}</h2>${s.intro ? `<p class="sec-intro">${esc(s.intro)}</p>` : ''}
+      <div class="sec-err" id="secErr" role="alert" hidden></div>
+      <div class="grid">${s.fields.map(fd => fd.type === 'repeat' ? renderRepeat(fd) : renderField(fd)).join('')}</div>`;
+    updateDynamic();
+  }
+  renderActions();
+}
+
+/* Re-evaluates conditional visibility, computed blocks, hints, locks and warnings without re-rendering */
+function updateDynamic(){
+  if (submitted || step >= SECTIONS.length) return;
+  applyMirrors();
+  walk(SECTIONS[step], e => {
+    let w = formArea.querySelector(`[data-w="${e.path}"]`); if (!w) return;
+    const d = e.def;
+    if (d.type === 'dynchecks') {
+      const opts = d.options(data);
+      if (w.dataset.sig !== opts.join('|')) {
+        if (Array.isArray(data[d.name])) data[d.name] = data[d.name].filter(x => opts.includes(x));
+        w.outerHTML = renderField(d); w = formArea.querySelector(`[data-w="${e.path}"]`);
+      }
+    }
+    const vis = isVisible(e);
+    w.hidden = !vis;
+    if (d.type === 'computed') w.querySelector('[data-computed]').innerHTML = d.compute(data);
+    if (d.hintFn) w.querySelector('[data-hint]').textContent = d.hintFn(data, e.row || {}) || d.hint || '';
+    if (d.lockIf) {
+      const locked = !!d.lockIf(data), el = w.querySelector(`[data-path="${e.path}"]`);
+      if (locked) el.value = getP(e.path) ?? '';
+      el.disabled = locked;
+      if (d.type === 'phone') { const cc = w.querySelector(`[data-path="${e.path}_cc"]`); cc.value = getP(e.path + '_cc') || '+91'; cc.disabled = locked; }
+      if (locked) showErr(e.path, '');
+    }
+    if (d.warn) { const v = getP(e.path); w.querySelector('[data-warn]').textContent = vis && !isEmpty(v) ? d.warn(v, data, e.row || {}) : ''; }
+  });
+}
+
+function renderStepper(){
+  const total = SECTIONS.length;
+  const labels = [...SECTIONS.map(s => s.short || s.title), 'Review'];
+  stepperEl.innerHTML = labels.map((l, i) => {
+    const st = submitted ? 'done' : i === step ? 'current' : i <= maxStep ? 'done' : 'locked';
+    const mark = (submitted || (i < maxStep && i !== step)) ? '✓' : i + 1;
+    return `<li><button type="button" class="st ${st}" data-act="goto" data-i="${i}" ${st === 'locked' || submitted ? 'disabled' : ''} ${i === step ? 'aria-current="step"' : ''} title="${esc(l)}"><span class="dot">${mark}</span><span class="st-l">${esc(l)}</span></button></li>`;
+  }).join('');
+  $('stepLabel').textContent = submitted ? 'Form submitted' : step < total ? `Step ${step + 1} of ${total} – ${SECTIONS[step].title}` : 'Review & Submit';
+  $('progressBar').style.width = (submitted ? 100 : Math.round(step / total * 100)) + '%';
+  const cur = stepperEl.querySelector('.current');
+  if (cur) stepperEl.scrollLeft = cur.offsetLeft - stepperEl.clientWidth / 2 + cur.clientWidth / 2;
+}
+
+function renderActions(){
+  if (submitted) { actionsEl.innerHTML = ''; return; }
+  const review = step === SECTIONS.length;
+  const submitButton = isSubmitting
+    ? `<button type="button" class="btn-primary" disabled>Submitting…</button>`
+    : `<button type="button" class="btn-primary" data-act="submit">Submit form</button>`;
+  actionsEl.innerHTML = `<button type="button" class="btn-ghost" data-act="prev" ${step === 0 || isSubmitting ? 'disabled' : ''}>← Previous</button>
+    <span class="spacer"></span>
+    <button type="button" class="btn-ghost" data-act="save" ${isSubmitting ? 'disabled' : ''}>Save draft</button>
+    ${review ? submitButton
+             : `<button type="button" class="btn-primary" data-act="next" ${isSubmitting ? 'disabled' : ''}>${step === SECTIONS.length - 1 ? 'Review →' : 'Next →'}</button>`}`;
+}
+
+/* ---------- Review ---------- */
+function fmtVal(e){
+  const d = e.def, v = d.type === 'file' ? files[e.path] : getP(e.path);
+  if (d.type === 'file') return v ? esc(v.name) : '—';
+  if (d.type === 'checkbox') return v ? 'Yes' : 'No';
+  if (isEmpty(v)) return '—';
+  if (Array.isArray(v)) return esc(v.join(', '));
+  if (d.mask) return esc(mask(v, d.mask));
+  if (d.type === 'phone') return esc(`${getP(e.path + '_cc') || '+91'} ${v}`);
+  if (d.type === 'date' || d.type === 'month') return esc(fmtDate(v));
+  if (d.type === 'number' && d.name === 'ctc') return '₹ ' + esc(Number(v).toLocaleString('en-IN'));
+  return esc(v);
+}
+
+function reviewHTML(edit){
+  return SECTIONS.map((s, i) => {
+    let body = '', rows = '';
+    const flush = () => { if (rows) { body += `<dl class="rv">${rows}</dl>`; rows = ''; } };
+    s.fields.forEach(fd => {
+      const e = { def: fd, path: fd.name, row: null, parent: null };
+      if (!isVisible(e) || fd.hr || fd.noReview || fd.type === 'note') return;
+      if (fd.type === 'heading') { flush(); body += `<h4>${esc(fd.label)}</h4>`; return; }
+      if (fd.type === 'computed') { if (fd.review) rows += `<dt>${esc(fd.review)}</dt><dd>${esc(fd.reviewVal(data))}</dd>`; return; }
+      if (fd.type === 'repeat') {
+        flush(); body += `<h4>${esc(fd.label)}</h4>`;
+        const list = (data[fd.name] || []).map((row, ri) => ({ row, ri })).filter(x => !fd.skipEmptyRow || x.row._req || rowFilled(x.row));
+        if (!list.length) body += '<p class="muted">None</p>';
+        list.forEach(({ row, ri }) => {
+          let r = '';
+          fd.fields.forEach(cf => { const ce = { def: cf, path: `${fd.name}.${ri}.${cf.name}`, row, parent: fd };
+            if (isVisible(ce) && !cf.noReview) r += `<dt>${esc(cf.label)}</dt><dd>${fmtVal(ce)}</dd>`; });
+          body += `<div class="rv-row"><div class="rv-row-t">${esc(fd.rowTitle ? fd.rowTitle(row, ri) : '#' + (ri+1))}</div><dl class="rv">${r}</dl></div>`;
+        });
+        return;
+      }
+      rows += `<dt>${esc(fd.label)}</dt><dd>${fmtVal(e)}</dd>`;
+    });
+    flush();
+    return `<section class="rv-sec"><div class="rv-head"><h3>${i + 1}. ${esc(s.title)}</h3>${edit ? `<button type="button" class="btn-ghost sm" data-act="edit" data-i="${i}">Edit</button>` : ''}</div>${body}</section>`;
+  }).join('');
+}
+
+function renderReview(){
+  formArea.innerHTML = `<h2 class="sec-title">Review & Submit</h2>
+    <p class="sec-intro">Please check every detail carefully. Use <strong>Edit</strong> to correct any section. Sensitive numbers are partly hidden for your security.</p>
+    <div class="rv-top">${files.photo ? `<img class="rv-photo" src="${objURL(files.photo)}" alt="Candidate photograph">` : ''}
+      <div><strong style="font-size:1.15rem;color:var(--navy)">${esc(fullName(data) || 'Candidate')}</strong>
+      <div class="muted">${esc(data.position || '')}${data.department ? ' · ' + esc(data.department) : ''}${data.doj ? ' · Joining ' + esc(fmtDate(data.doj)) : ''}</div></div></div>
+    ${reviewHTML(true)}`;
+}
+
+function renderConfirm(){
+  formArea.innerHTML = `<div class="confirm"><div class="big-check" aria-hidden="true">✓</div>
+    <h2>Thank you, ${esc(data.first_name || 'there')}!</h2>
+    <p>Your onboarding form has been submitted successfully.</p>
+    <div class="refbox">Your reference number<strong>${esc(submitted.ref)}</strong></div>
+    <p class="muted">Please quote this reference number in all communication with TCAI HR, and bring the originals of all uploaded documents on your date of joining for verification.</p>
+    <div class="btn-row" style="margin-top:20px">
+      <button type="button" class="btn-primary" data-act="json">Download data as JSON</button>
+      <button type="button" class="btn-ghost" data-act="print">Print / Save as PDF</button>
+      <button type="button" class="btn-link" data-act="new">Start a new form</button>
+    </div></div>`;
+}
+
+function printHTML(){
+  return `<div class="pv-head"><div class="logo">TCAI</div><div><h1>TCAI – New Employee Onboarding Form</h1>
+    <p>${submitted ? `Reference: <b>${esc(submitted.ref)}</b> · Submitted ${esc(new Date(submitted.at).toLocaleString('en-IN'))}` : 'Draft – not yet submitted'}</p></div>
+    ${files.photo ? `<img class="rv-photo" style="margin-left:auto" src="${objURL(files.photo)}" alt="">` : ''}</div>
+    ${reviewHTML(false)}
+    <div class="pv-sign"><div>Candidate signature &amp; date</div><div>HR verification (name, signature &amp; date)</div></div>`;
+}
+
+/* =====================================================================
+   NAVIGATION, DRAFTS, SUBMISSION
+   ===================================================================== */
+function go(i){
+  step = Math.max(0, Math.min(i, SECTIONS.length));
+  maxStep = Math.max(maxStep, step);
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  saveDraft();
+}
+
+let saveTimer;
+const saveDraftSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(saveDraft, 400); };
+function saveDraft(manual){
+  if (submitted) return;
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ data, step, maxStep, savedAt: new Date().toISOString() }));
+    if (manual) toast('Draft saved on this device. Uploaded files are not saved in drafts.');
+  } catch (_) { if (manual) toast('Could not save the draft in this browser.'); }
+}
+function loadDraft(){ try { const s = localStorage.getItem(DRAFT_KEY); return s ? JSON.parse(s) : null; } catch (_) { return null; } }
+function clearDraft(){ try { localStorage.removeItem(DRAFT_KEY); } catch (_) {} }
+
+function buildPayload(){
+  const clean = JSON.parse(JSON.stringify(data));
+  (clean.education || []).forEach(r => delete r._req);
+  return {
+    referenceNumber: submitted ? submitted.ref : null,
+    submittedAt: submitted ? submitted.at : null,
+    candidate: clean,
+    documents: Object.fromEntries(Object.entries(files).map(([k, f]) => [k, { name: f.name, size: f.size, type: f.type }])),
+  };
+}
+
+let isSubmitting = false;
+
+async function submitForm(){
+  // Prevent duplicate submissions, including after a successful submission.
+  if (isSubmitting || submitted) return;
+
+  // Validate every section before submitting.
+  for (let i = 0; i < SECTIONS.length; i++) {
+    const { errs, sec } = sectionErrors(i);
+
+    if (errs.length || sec) {
+      step = i;
+      render();
+      validateCurrent();
+      toast(`Please complete the highlighted items in "${SECTIONS[i].title}".`);
+      return;
+    }
+  }
+
+  isSubmitting = true;
+
+  // Find the submit button and show its submitting state.
+  const submitBtn = document.querySelector(
+    '#actions button[data-act="submit"], #actions button[type="submit"]'
+  );
+  const originalText = submitBtn ? submitBtn.textContent : '';
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+  }
+
+  // Disable the other action buttons while the request is in progress.
+  actionsEl.querySelectorAll('button').forEach(button => {
+    button.disabled = true;
+  });
+
+  try {
+    // Build multipart form data.
+    const fd = new FormData();
+
+    // Send candidate data and file metadata.
+    fd.append('payload', JSON.stringify({
+      submittedAt: new Date().toISOString(),
+      candidate: JSON.parse(JSON.stringify(data)),
+      documents: Object.fromEntries(
+        Object.entries(files).map(([key, file]) => [
+          key,
+          {
+            name: file.name,
+            size: file.size,
+            type: file.type
+          }
+        ])
+      )
+    }));
+
+    // Send the actual uploaded files.
+    Object.entries(files).forEach(([key, file]) => {
+      fd.append(key, file, file.name);
+    });
+
+    // Send to Flask, retaining the current authenticated session.
+    const response = await fetch('/api/onboarding', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    let result = {};
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      result = await response.json();
+    } else {
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(responseText || `Submission failed (${response.status}).`);
+      }
+    }
+
+    if (!response.ok || result.success === false) {
+      throw new Error(
+        result.message || result.error || `Onboarding submission failed (${response.status}).`
+      );
+    }
+
+    // Accept the reference-number field names used by the Flask API.
+    const referenceNumber = result.referenceNumber || result.reference_number;
+
+    if (!referenceNumber) {
+      throw new Error('The server did not return a reference number.');
+    }
+
+    submitted = {
+      ref: referenceNumber,
+      at: result.submittedAt || result.submitted_at || new Date().toISOString()
+    };
+
+    // Clear the saved draft only after successful submission.
+    clearDraft();
+
+    // Show the confirmation screen.
+    render();
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+
+  } catch (err) {
+    console.error('Onboarding submission error:', err);
+    submitted = null;
+
+    toast(
+      err && err.message
+        ? err.message
+        : 'Submission failed. Please check your connection and try again.'
+    );
+
+  } finally {
+    // Always unlock submission and restore the action buttons.
+    isSubmitting = false;
+
+    if (!submitted) {
+      renderActions();
+    } else {
+      renderActions();
+    }
+
+    if (submitBtn && submitBtn.isConnected) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText || 'Submit Form';
+    }
+  }
+}
+
+function downloadJSON(){
+  const blob = new Blob([JSON.stringify(buildPayload(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${submitted ? submitted.ref : 'tcai-onboarding-draft'}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+let toastTimer;
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3500); }
+
+function reindexFiles(rep, idx){
+  const nf = {};
+  Object.entries(files).forEach(([k, f]) => {
+    const m = k.match(/^([^.]+)\.(\d+)\.(.+)$/);
+    if (m && m[1] === rep) { const i = +m[2]; if (i === idx) return; nf[i > idx ? `${rep}.${i - 1}.${m[3]}` : k] = f; }
+    else nf[k] = f;
+  });
+  files = nf;
+}
+
+/* =====================================================================
+   EVENTS
+   ===================================================================== */
+function onFieldEvent(ev){
+  const el = ev.target, p = el.dataset.path;
+  if (!p) return;
+  if (el.type === 'file') { if (ev.type === 'change') onFile(el, p); return; }
+  if (el.type === 'radio') { if (!el.checked) return; setP(p, el.value); }
+  else if (el.type === 'checkbox') {
+    setP(p, el.dataset.multi ? [...formArea.querySelectorAll(`input[data-multi][data-path="${p}"]:checked`)].map(x => x.value) : el.checked);
+  } else {
+    if (el.dataset.upper || el.dataset.digits) {
+      const pos = el.selectionStart, before = el.value.length;
+      el.value = el.dataset.digits ? el.value.replace(/\D/g, '') : el.value.toUpperCase();
+      try { const np = Math.max(0, pos - (before - el.value.length)); el.setSelectionRange(np, np); } catch (_) {}
+    }
+    setP(p, el.value);
+  }
+  const base = p.replace(/_cc$/, ''), entry = entryFor(base);
+  const immediate = ev.type === 'change' && (el.tagName === 'SELECT' || el.type === 'radio' || el.type === 'checkbox');
+  if (entry && (immediate || hasErr(base))) showErr(base, validateEntry(entry));
+  updateDynamic();
+  saveDraftSoon();
+}
+
+function onFile(el, p){
+  const f = el.files[0]; if (!f) return;
+  const e = entryFor(p);
+  const accept = (e && e.def.accept ? e.def.accept : '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const ext = '.' + f.name.split('.').pop().toLowerCase();
+  if (accept.length && !accept.includes(ext)) { el.value = ''; showErr(p, `Allowed file types: ${accept.map(a => a.slice(1).toUpperCase()).join(', ')}.`); return; }
+  if (f.size > MAX_FILE) { el.value = ''; showErr(p, 'File is larger than 2 MB. Please upload a smaller file.'); return; }
+  files[p] = f;
+  render();
+}
+
+function addTag(el){
+  const p = el.dataset.tag, parts = el.value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!parts.length) { el.value = ''; return; }
+  const arr = Array.isArray(getP(p)) ? getP(p).slice() : [];
+  parts.forEach(t => { if (!arr.some(x => x.toLowerCase() === t.toLowerCase())) arr.push(t); });
+  setP(p, arr); el.value = ''; rerenderTags(p);
+}
+function rerenderTags(p){
+  const c = formArea.querySelector(`[data-tags="${p}"]`); if (!c) return;
+  c.querySelectorAll('.tag').forEach(t => t.remove());
+  const inp = c.querySelector('input');
+  (getP(p) || []).forEach((t, i) => inp.insertAdjacentHTML('beforebegin', tagHTML(p, t, i)));
+  saveDraftSoon();
+}
+
+formArea.addEventListener('input', onFieldEvent);
+formArea.addEventListener('change', onFieldEvent);
+formArea.addEventListener('focusout', ev => {
+  const el = ev.target;
+  if (el.dataset.tag) { addTag(el); return; }
+  const p = el.dataset.path; if (!p || el.type === 'file') return;
+  const base = p.replace(/_cc$/, ''), e = entryFor(base);
+  if (e) showErr(base, validateEntry(e));
+});
+formArea.addEventListener('keydown', ev => {
+  const el = ev.target;
+  if (!el.dataset.tag) return;
+  if (ev.key === 'Enter' || ev.key === ',') { ev.preventDefault(); addTag(el); }
+  else if (ev.key === 'Backspace' && !el.value) {
+    const arr = (getP(el.dataset.tag) || []).slice(); if (arr.length) { arr.pop(); setP(el.dataset.tag, arr); rerenderTags(el.dataset.tag); }
+  }
+});
+formArea.addEventListener('paste', ev => {
+  if (ev.target.dataset && ev.target.dataset.nopaste) { ev.preventDefault(); toast('Please type the account number again – pasting is disabled for this field.'); }
+});
+formArea.addEventListener('click', ev => {
+  const c = ev.target.closest('.tags'); if (c && ev.target === c) c.querySelector('input').focus();
+});
+
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-act]'); if (!b || b.disabled) return;
+  const a = b.dataset.act;
+  switch (a) {
+    case 'next': if (validateCurrent()) go(step + 1); break;
+    case 'prev': go(step - 1); break;
+    case 'goto': { const i = +b.dataset.i; if (i <= maxStep) go(i); break; }
+    case 'edit': go(+b.dataset.i); break;
+    case 'save': saveDraft(true); break;
+    case 'submit': submitForm(); break;
+    case 'json': downloadJSON(); break;
+    case 'print': window.print(); break;
+    case 'add': {
+      const def = SECTIONS[step].fields.find(f => f.name === b.dataset.rep);
+      data[def.name].push(def.newRow ? def.newRow() : {});
+      render(); saveDraftSoon();
+      const rows = formArea.querySelectorAll(`[data-w="${def.name}"] .rep-row`);
+      const last = rows[rows.length - 1];
+      if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'center' }); const f = last.querySelector('input,select,textarea'); if (f) f.focus({ preventScroll: true }); }
+      break;
+    }
+    case 'del': {
+      const rep = b.dataset.rep, idx = +b.dataset.idx;
+      data[rep].splice(idx, 1); reindexFiles(rep, idx); render(); saveDraftSoon(); break;
+    }
+    case 'sens': {
+      const t = $(b.dataset.target); if (!t) break;
+      t.type = t.type === 'password' ? 'text' : 'password';
+      b.textContent = t.type === 'password' ? 'Show' : 'Hide'; break;
+    }
+    case 'rmfile': delete files[b.dataset.path]; render(); break;
+    case 'tagdel': {
+      const arr = (getP(b.dataset.path) || []).slice(); arr.splice(+b.dataset.i, 1);
+      setP(b.dataset.path, arr); rerenderTags(b.dataset.path); break;
+    }
+    case 'new':
+      if (!confirm('Start a new, empty onboarding form?')) break;
+      data = {}; files = {}; submitted = null; step = 0; maxStep = 0;
+      initDefaults(); render(); window.scrollTo({ top: 0 }); break;
+  }
+});
+
+window.addEventListener('beforeprint', () => { $('printView').innerHTML = printHTML(); });
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+(function init(){
+  initDefaults();
+  const draft = loadDraft();
+  if (draft && draft.data && Object.keys(draft.data).length) {
+    $('rmText').textContent = `We found a draft saved on ${new Date(draft.savedAt).toLocaleString('en-IN')}. Would you like to continue where you left off?`;
+    $('resumeModal').hidden = false;
+    $('rmYes').focus();
+    $('rmYes').onclick = () => {
+      data = draft.data; initDefaults();
+      maxStep = Math.min(draft.maxStep || 0, SECTIONS.length); step = Math.min(draft.step || 0, maxStep);
+      $('resumeModal').hidden = true; render();
+    };
+    $('rmNo').onclick = () => { clearDraft(); $('resumeModal').hidden = true; render(); };
+  }
+  render();
+})();
+</script>
+</body>
+</html>

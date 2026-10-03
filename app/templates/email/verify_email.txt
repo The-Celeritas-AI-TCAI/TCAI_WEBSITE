@@ -1,0 +1,11 @@
+Dear {{ user.username }},
+
+Welcome to {{ app_name }}!
+
+To verify your email address, please visit the following link:
+{{ app_url }}{{ url_for('auth.verify_email', token=token) }}
+
+If you did not make this request, please ignore this email.
+
+Sincerely,
+The {{ app_name }} Team
