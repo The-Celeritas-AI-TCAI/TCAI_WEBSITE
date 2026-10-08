@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TCAI – Career Application</title>
+<!--
+==========================================================================
+ TCAI CAREER APPLICATION
+ Frontend: HTML + CSS + Vanilla JavaScript
+ Backend:  Flask → Google Apps Script
+ Storage:  Google Sheets + Google Drive
+==========================================================================
+ - Opened through the Flask website. No build step, no framework.
+ - Applications are submitted to Flask at /api/career. The Google Apps Script
+   URL and API key remain server-side in Flask .env configuration.
+ - The form is schema-driven (search "FORM SCHEMA"). Edit that array to change fields.
+ - Drafts are auto-saved to localStorage (tcai_career_application_draft_v1).
+   The resume file is NEVER stored in localStorage.
+ - On submit the resume is converted to Base64 and POSTed with the candidate data
+   as JSON to the Apps Script Web App. The full Apps Script backend (doPost) is
+   included in a comment block at the very bottom of this file.
+==========================================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1F3A5F; --navy-2:#2B4C77; --teal:#14B8A6; --teal-d:#0F8F82; --teal-l:#E6F7F5;
+    --bg:#F3F5F8; --card:#FFFFFF; --text:#1E293B; --muted:#64748B; --border:#D7DEE7;
+    --err:#DC2626; --warn:#B45309; --ok:#15803D; --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-padding-top:150px}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:15px;line-height:1.5;color:var(--text);background:var(--bg);overflow-x:hidden}
+  h1,h2,h3,h4{line-height:1.25}
+
+  .topbar{background:var(--navy);color:#fff;padding:18px 16px}
+  .topbar-in{max-width:1000px;margin:0 auto;display:flex;gap:16px;align-items:center}
+  .logo{width:58px;height:58px;flex:none;border-radius:12px;background:#fff;color:var(--navy);display:grid;place-items:center;font-weight:800;letter-spacing:.5px;border:2px dashed var(--teal);font-size:.95rem}
+  .topbar h1{margin:0;font-size:1.4rem;font-weight:700}
+  .topbar p{margin:3px 0 0;opacity:.85;font-size:.9rem}
+
+  .app{max-width:1000px;margin:0 auto;padding:0 16px}
+  .welcome{margin:16px 0 0;padding:14px 18px;background:var(--teal-l);border:1px solid #BCE9E3;border-radius:var(--radius);font-size:.92rem;color:#134E4A}
+  .stepper-wrap{position:sticky;top:0;z-index:20;background:var(--bg);padding:12px 0 8px}
+  .stepper-wrap[hidden]{display:none}
+  .step-label{font-weight:700;color:var(--navy);font-size:.95rem;margin-bottom:6px}
+  .progress{height:6px;background:#E2E8F0;border-radius:99px;overflow:hidden}
+  .progress>div{height:100%;background:var(--teal);border-radius:99px;transition:width .3s ease}
+  .stepper{list-style:none;margin:10px 0 0;padding:0 0 6px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+  .st{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;border-radius:99px;padding:4px 11px 4px 4px;font:inherit;font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .st .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#E2E8F0;font-size:.72rem;font-weight:700}
+  .st.done{color:var(--navy);border-color:#9ED9D1}
+  .st.done .dot{background:var(--teal);color:#fff}
+  .st.current{background:var(--navy);border-color:var(--navy);color:#fff}
+  .st.current .dot{background:#fff;color:var(--navy)}
+  .st:disabled{cursor:not-allowed;opacity:.55}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:26px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .sec-title{margin:0;color:var(--navy);font-size:1.3rem}
+  .sec-intro{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+  .sec-err{margin-top:14px;padding:10px 14px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;color:var(--err);font-size:.88rem;font-weight:500}
+  .sec-err:empty{display:none}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;margin-top:16px}
+  .field{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .field.full{grid-column:1/-1}
+  label,.lbl{font-weight:600;font-size:.86rem;color:#334155}
+  .req{color:var(--err);margin-left:3px}
+  input[type=text],input[type=email],input[type=url],input[type=number],input[type=date],input[type=tel],select,textarea{
+    width:100%;font:inherit;font-size:.95rem;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);min-height:40px}
+  textarea{resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:3px solid rgba(20,184,166,.3);outline-offset:0;border-color:var(--teal)}
+  button:focus-visible,.vh:focus+label,.vh:focus-visible+label{outline:3px solid rgba(20,184,166,.5);outline-offset:2px}
+  input:disabled,select:disabled,textarea:disabled{background:#EEF1F5;color:#64748B;cursor:not-allowed}
+  .invalid input,.invalid select,.invalid textarea,.invalid .tags,.invalid .upload{border-color:var(--err)}
+  .err{color:var(--err);font-size:.8rem;font-weight:500}
+  .warn{color:var(--warn);font-size:.8rem}
+  .hint{color:var(--muted);font-size:.8rem}
+  .err:empty,.warn:empty,.hint:empty{display:none}
+  .heading h3{margin:12px 0 0;font-size:1.02rem;color:var(--navy);padding-bottom:6px;border-bottom:2px solid var(--teal-l)}
+  .muted{color:var(--muted);font-size:.86rem;margin:2px 0 0}
+  .note{margin:0;padding:10px 14px;border-radius:8px;background:#F1F5F9;border-left:4px solid var(--navy-2);font-size:.86rem;color:#334155}
+  .choice-row{display:flex;flex-wrap:wrap;gap:8px 20px;padding:5px 0}
+  .choice{display:inline-flex;align-items:center;gap:7px;font-weight:500;font-size:.92rem;color:var(--text);cursor:pointer}
+  .choice input{width:17px;height:17px;margin:0;accent-color:var(--teal);flex:none}
+  .checkbox-field .choice{align-items:flex-start;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+  .checkbox-field .choice input{margin-top:3px}
+  .invalid.checkbox-field .choice{border-color:var(--err)}
+
+  .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .upload{border:2px dashed var(--border);border-radius:var(--radius);background:#FBFCFE;padding:24px 16px;text-align:center}
+  .upload strong{display:block;color:var(--navy);font-size:1.05rem}
+  .upload .hint{margin:4px 0 14px}
+  .upload label.btn-ghost{display:inline-block}
+  .file-chip{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--teal-l);border:1px solid #BCE9E3;border-radius:10px;font-size:.9rem;text-align:left;word-break:break-all}
+  .file-chip small{display:block;color:var(--muted)}
+
+  .tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;min-height:40px;cursor:text}
+  .tags:focus-within{outline:3px solid rgba(20,184,166,.3);border-color:var(--teal)}
+  .tags input{border:0!important;outline:0!important;flex:1;min-width:140px;font:inherit;font-size:.92rem;padding:4px!important;min-height:0!important;width:auto!important}
+  .tag{display:inline-flex;align-items:center;gap:4px;background:var(--navy);color:#fff;border-radius:99px;padding:2px 4px 2px 10px;font-size:.8rem}
+  .tag button{border:0;background:rgba(255,255,255,.2);color:#fff;border-radius:50%;width:18px;height:18px;line-height:1;cursor:pointer;padding:0}
+
+  .btn-primary,.btn-ghost,.btn-link{font:inherit;font-weight:600;cursor:pointer;border-radius:8px;font-size:.92rem}
+  .btn-primary{background:var(--teal);color:#fff;border:1px solid var(--teal);padding:10px 20px}
+  .btn-primary:hover{background:var(--teal-d)}
+  .btn-primary:disabled{opacity:.6;cursor:wait}
+  .btn-ghost{background:#fff;color:var(--navy);border:1px solid var(--border);padding:9px 16px}
+  .btn-ghost:hover{border-color:var(--navy)}
+  .btn-ghost:disabled{opacity:.45;cursor:not-allowed}
+  .btn-link{background:none;border:0;color:var(--navy-2);padding:4px 6px;text-decoration:underline}
+  .btn-link.danger{color:var(--err)}
+  .sm{padding:6px 12px;font-size:.82rem}
+  .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:16px 0 40px}
+  .actions[hidden]{display:none}
+  .spacer{flex:1}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+
+  .rv-sec{border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-top:14px}
+  .rv-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .rv-head h3{margin:0;color:var(--navy);font-size:1.05rem}
+  .rv{display:grid;grid-template-columns:minmax(150px,240px) 1fr;gap:3px 16px;margin:6px 0;font-size:.88rem}
+  .rv dt{color:var(--muted)}
+  .rv dd{margin:0;word-break:break-word;font-weight:500}
+
+  .confirm{text-align:center;padding:24px 8px}
+  .big-check{width:72px;height:72px;margin:0 auto 10px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:2.2rem;font-weight:700}
+  .confirm h2{color:var(--navy);margin:8px 0}
+  .refbox{display:inline-flex;flex-direction:column;gap:2px;margin:16px 0;padding:14px 28px;border:2px dashed var(--teal);border-radius:12px;color:var(--muted);font-size:.85rem;max-width:100%}
+  .refbox strong{font-size:1.4rem;color:var(--navy);letter-spacing:.04em;word-break:break-all}
+  .confirm .rv{max-width:520px;margin:12px auto;text-align:left}
+
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;z-index:50;padding:16px}
+  .modal[hidden]{display:none}
+  .modal-card{background:#fff;border-radius:14px;padding:24px;max-width:440px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .modal-card h2{margin:0 0 6px;color:var(--navy);font-size:1.2rem}
+  .modal-card .btn-row{justify-content:flex-end;margin-top:18px}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:.88rem;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90vw}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:720px){
+    .grid{grid-template-columns:1fr}
+    .card{padding:18px 16px}
+    .topbar h1{font-size:1.1rem}
+    .st{padding:4px}
+    .st .st-l{display:none}
+    .st.current{padding-right:11px}
+    .st.current .st-l{display:inline}
+    .rv{grid-template-columns:1fr;gap:0}
+    .rv dd{margin-bottom:6px}
+    .actions .btn-primary,.actions .btn-ghost{flex:1}
+    .actions .spacer{display:none}
+    .refbox{padding:12px 16px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="logo" aria-label="TCAI logo placeholder">TCAI</div>
+    <div>
+      <h1>Career Application</h1>
+      <p>Complete your application for the selected opportunity.</p>
+    </div>
+  </div>
+</header>
+
+<div class="app" id="app">
+  <div class="welcome" id="welcome">
+    <strong>Join TCAI and explore opportunities to build, learn and grow with us.</strong>
+    Fields marked <span class="req">*</span> are mandatory. Your progress is saved automatically on this device, so you can return and finish later.
+  </div>
+
+  <nav class="stepper-wrap" id="stepperWrap" aria-label="Application progress">
+    <div class="step-label" id="stepLabel"></div>
+    <div class="progress" aria-hidden="true"><div id="progressBar"></div></div>
+    <ol class="stepper" id="stepper"></ol>
+  </nav>
+
+  <main class="card" id="formArea" aria-live="polite"></main>
+  <div class="actions" id="actions"></div>
+</div>
+
+<div class="modal" id="resumeModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
+    <h2 id="rmTitle">Resume your saved application?</h2>
+    <p id="rmText" style="margin:0"></p>
+    <p class="muted" id="rmFile" hidden>Your resume file needs to be selected again.</p>
+    <div class="btn-row">
+      <button type="button" class="btn-ghost" id="rmNo">Start Fresh</button>
+      <button type="button" class="btn-primary" id="rmYes">Resume Application</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   CONFIG  –  EDIT THIS SECTION
+   ===================================================================== */
+const CONFIG = {
+  // Submit through the Flask backend. Google Apps Script URL/API key stay server-side.
+  CAREER_API_URL: "/api/career",
+  DRAFT_KEY: 'tcai_career_application_draft_v1',
+  MAX_FILE_BYTES: 5 * 1024 * 1024,        // 5 MB resume limit
+  ALLOWED_EXT: ['pdf', 'doc', 'docx'],
+  SUBMIT_TIMEOUT_MS: 120000               // Base64 of 5 MB ≈ 6.7 MB request
+};
+
+/* =====================================================================
+   CONSTANTS
+   ===================================================================== */
+const YEARS = ['2020','2021','2022','2023','2024','2025','2026','2027','2028','Other'];
+const QUALS = ['10th','12th','Diploma','B.E.','B.Tech','B.Sc.','BCA','MCA','M.Tech','M.Sc.','MBA','Other'];
+const ROLES = ['AI Engineer','Generative AI Engineer','Machine Learning Engineer','Data Scientist','Data Analyst','Data Engineer','MLOps Engineer','Backend Developer','Software Engineer','AI/ML Intern','Other'];
+const DEPTS = ['AI / ML','Data','Engineering','Software','Other'];
+const WORK = ['On-site','Hybrid','Remote','Flexible'];
+const LOCS = ['Pune','Mumbai','Hyderabad','Bangalore','Ahmedabad','Nashik','Remote','Other'];
+const EMP_STATUS = ['Fresher','Employed','Serving Notice Period','Not Currently Working','Other'];
+const NOTICE = ['Immediate','15 Days','30 Days','45 Days','60 Days','90 Days','Other'];
+const AVAIL = ['Immediately','Within 15 days','Within 30 days','Within 60 days','More than 60 days'];
+const HEARD = ['Company Website','LinkedIn','Employee Referral','Job Portal','College / Campus','Recruiter','Other'];
+const SKILL_SUGGEST = ['Python','SQL','Machine Learning','Generative AI','LangChain','LangGraph','FastAPI','Deep Learning','NLP','Docker'];
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+const state = {
+  step: 0, maxStep: 0,
+  data: {},
+  errs: {},
+  resume: null,          // File object (never persisted)
+  hadResumeInDraft: false,
+  submitting: false,
+  clientRef: ''
+};
+const STEP_NAMES = ['Candidate','Professional','Role','Resume','Review'];
+const LAST_STEP = STEP_NAMES.length - 1;
+
+/* =====================================================================
+   HELPERS
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const val = id => (typeof state.data[id] === 'string' ? state.data[id].trim() : (state.data[id] || ''));
+const toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200); };
+const fmtSize = b => b < 1024 * 1024 ? (b / 1024).toFixed(0) + ' KB' : (b / 1024 / 1024).toFixed(2) + ' MB';
+const pad = (n, l = 2) => String(n).padStart(l, '0');
+function genClientRef() {
+  const d = new Date();
+  return `TCAI-CAR-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(Math.floor(Math.random() * 9000) + 1, 4)}`;
+}
+const normUrl = u => /^https?:\/\//i.test(u) ? u : 'https://' + u;
+
+/* =====================================================================
+   FORM SCHEMA
+   f: id, label, type(text|email|tel|url|number|date|select|radio|textarea|tags|file|check|heading|note),
+      req (bool|fn), show(d), na(d) (disabled / Not Applicable), full, opts, hint, min, max, step, ph, validate(v,d)
+   ===================================================================== */
+const isFresher = d => d.expType === 'Fresher';
+const isExp = d => d.expType === 'Experienced';
+const working = d => ['Employed', 'Serving Notice Period'].includes(d.empStatus);
+
+const SECTIONS = [
+  { key: 'candidate', title: 'Candidate Information', intro: 'Tell us who you are and how we can reach you.', fields: [
+    { id: 'name', label: 'Candidate Name', type: 'text', req: true, ph: 'Full name', auto: 'name',
+      validate: v => v.length < 2 ? 'Enter your full name.' : (/^[\p{L}][\p{L} .'\-]*$/u.test(v) ? '' : 'Name may contain letters, spaces and . \' - only.') },
+    { id: 'email', label: 'Email Address', type: 'email', req: true, ph: 'name@example.com', auto: 'email' },
+    { id: 'phone', label: 'Phone Number', type: 'tel', req: true, ph: '9876543210 or +44 7700 900123', auto: 'tel',
+      hint: 'Indian 10-digit mobile, or international number starting with +',
+      validate: v => { const s = v.replace(/[\s\-()]/g, ''); return (/^(\+91|91|0)?[6-9]\d{9}$/.test(s) || /^\+\d{8,15}$/.test(s)) ? '' : 'Enter a valid phone number.'; } },
+    { id: 'city', label: 'Location / City', type: 'text', req: true, ph: 'e.g. Pune', auto: 'address-level2' },
+    { id: 'state', label: 'State', type: 'text', auto: 'address-level1' },
+    { id: 'country', label: 'Country', type: 'text', ph: 'e.g. India', auto: 'country-name' },
+    { id: 'passout', label: 'Passout Year', type: 'select', req: true, opts: YEARS },
+    { id: 'passoutOther', label: 'Specify Passout Year', type: 'number', req: true, min: 1980, max: 2045, step: 1, show: d => d.passout === 'Other',
+      validate: v => Number.isInteger(Number(v)) ? '' : 'Enter a valid year.' },
+    { id: 'qualification', label: 'Highest Qualification', type: 'select', req: true, opts: QUALS },
+    { id: 'college', label: 'College / University', type: 'text', req: true },
+    { id: 'linkedin', label: 'LinkedIn Profile', type: 'url', ph: 'linkedin.com/in/yourname' },
+    { id: 'github', label: 'GitHub / Portfolio', type: 'url', ph: 'github.com/yourname' }
+  ]},
+  { key: 'professional', title: 'Professional Information', intro: 'Your experience, compensation expectations and availability.', fields: [
+    { id: 'expType', label: 'Fresher / Experienced', type: 'radio', req: true, opts: ['Fresher', 'Experienced'], full: true },
+    { id: 'prevCompany', label: 'Previous Company', type: 'text', req: isExp, na: isFresher },
+    { id: 'prevRole', label: 'Previous Role', type: 'text', req: isExp, na: isFresher },
+    { id: 'prevCtc', label: 'Previous CTC (₹ LPA)', type: 'number', req: isExp, na: isFresher, min: 0, max: 1000, step: 0.1, ph: 'e.g. 6' },
+    { id: 'expectedCtc', label: 'Expected CTC (₹ LPA)', type: 'number', req: true, min: 0, max: 1000, step: 0.1, ph: 'e.g. 8', hint: 'Numeric value in lakhs per annum (e.g. 6 or 6.5)' },
+    { id: 'totalExp', label: 'Total Experience (years)', type: 'number', min: 0, max: 60, step: 0.1, ph: 'e.g. 0, 0.5, 2' },
+    { id: 'empStatus', label: 'Current Employment Status', type: 'select', opts: EMP_STATUS },
+    { id: 'notice', label: 'Current Notice Period', type: 'select', opts: NOTICE, show: working },
+    { id: 'lastWorking', label: 'Last / Expected Last Working Date', type: 'date',
+      show: d => isFresher(d) || working(d) || d.empStatus === 'Not Currently Working', na: isFresher },
+    { id: 'available', label: 'Available to Join', type: 'select', opts: AVAIL }
+  ]},
+  { key: 'role', title: 'Role & Application Details', intro: 'Choose the opportunity you are applying for.', fields: [
+    { id: 'role', label: 'Applying For / Role', type: 'select', req: true, opts: ROLES },
+    { id: 'roleOther', label: 'Specify Role', type: 'text', req: true, show: d => d.role === 'Other' },
+    { id: 'dept', label: 'Department', type: 'select', opts: DEPTS },
+    { id: 'workPref', label: 'Work Preference', type: 'select', opts: WORK },
+    { id: 'prefLoc', label: 'Preferred Location', type: 'select', opts: LOCS },
+    { id: 'relocate', label: 'Willing to Relocate?', type: 'radio', opts: ['Yes', 'No'] },
+    { id: 'relExp', label: 'Years of Relevant Experience', type: 'number', min: 0, max: 60, step: 0.1 },
+    { id: 'skills', label: 'Skills', type: 'tags', full: true, hint: 'Type a skill and press Enter. Suggestions: Python, SQL, Machine Learning, Generative AI, LangChain, LangGraph, FastAPI' },
+    { id: 'addSkills', label: 'Additional Relevant Skills', type: 'textarea', full: true, ph: 'Tools, frameworks, certifications or domains not listed above' },
+    { id: 'heard', label: 'How did you hear about us?', type: 'select', opts: HEARD },
+    { id: 'refName', label: 'Employee Name / Referral Name', type: 'text', req: true, show: d => d.heard === 'Employee Referral' },
+    { id: 'comments', label: 'Additional Comments', type: 'textarea', full: true }
+  ]},
+  { key: 'resume', title: 'Resume & Portfolio', intro: 'Upload your resume and share any links that showcase your work.', fields: [
+    { id: 'resume', label: 'Upload Resume', type: 'file', req: true, full: true },
+    { id: 'portfolio', label: 'Portfolio URL', type: 'url', ph: 'yourportfolio.com' },
+    { id: 'extraUrl', label: 'Additional Profile / Project URL', type: 'url' },
+    { id: 'cover', label: 'Cover Note / Message', type: 'textarea', full: true, ph: 'Tell us briefly about yourself, your relevant experience, or why you are interested in this role.' }
+  ]},
+  { key: 'review', title: 'Review & Submit', intro: 'Please review your details. Use Edit to change any section.', fields: [
+    { id: 'consent1', label: 'I confirm that the information provided in this application is accurate and complete.', type: 'check', req: true, full: true },
+    { id: 'consent2', label: 'I consent to TCAI using the information provided for recruitment and hiring purposes.', type: 'check', req: true, full: true }
+  ]}
+];
+const fieldMap = {};
+SECTIONS.forEach((s, i) => s.fields.forEach(f => { f.step = i; fieldMap[f.id] = f; }));
+
+/* =====================================================================
+   VALIDATION
+   ===================================================================== */
+const isVisible = f => !f.show || f.show(state.data);
+const isNA = f => !!(f.na && f.na(state.data));
+const isReq = f => typeof f.req === 'function' ? f.req(state.data) : !!f.req;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function isValidUrl(v) {
+  try { const u = new URL(normUrl(v)); return /^https?:$/.test(u.protocol) && /\./.test(u.hostname); } catch { return false; }
+}
+function validateFile(file) {
+  if (!file) return 'Please upload your resume.';
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!CONFIG.ALLOWED_EXT.includes(ext)) return 'Only PDF, DOC or DOCX files are accepted.';
+  if (file.size === 0) return 'The selected file is empty.';
+  if (file.size > CONFIG.MAX_FILE_BYTES) return 'File is too large. Maximum size is 5 MB.';
+  return '';
+}
+function validateField(f) {
+  if (!isVisible(f) || isNA(f) || f.type === 'heading' || f.type === 'note') return '';
+  if (f.type === 'file') return validateFile(state.resume);
+  if (f.type === 'check') return state.data[f.id] ? '' : 'This confirmation is required.';
+  if (f.type === 'tags') return '';
+  const v = String(state.data[f.id] == null ? '' : state.data[f.id]).trim();
+  if (!v) return isReq(f) ? (f.type === 'select' || f.type === 'radio' ? 'Please select an option.' : 'This field is required.') : '';
+  if (f.type === 'email' && !EMAIL_RE.test(v)) return 'Enter a valid email address.';
+  if (f.type === 'url' && !isValidUrl(v)) return 'Enter a valid URL (e.g. https://example.com).';
+  if (f.type === 'number') {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 'Enter a valid number.';
+    if (f.min != null && n < f.min) return `Value must be at least ${f.min}.`;
+    if (f.max != null && n > f.max) return `Value must not exceed ${f.max}.`;
+  }
+  if (f.type === 'date' && isNaN(Date.parse(v))) return 'Enter a valid date.';
+  return f.validate ? f.validate(v, state.data) : '';
+}
+function validateStep(i) {
+  const errs = {};
+  SECTIONS[i].fields.forEach(f => { const e = validateField(f); if (e) errs[f.id] = e; });
+  return errs;
+}
+function applyErrors(errs, stepIdx) {
+  SECTIONS[stepIdx].fields.forEach(f => delete state.errs[f.id]);
+  Object.assign(state.errs, errs);
+}
+
+/* =====================================================================
+   FORM RENDERING
+   ===================================================================== */
+function fieldHTML(f) {
+  if (!isVisible(f)) return '';
+  const id = f.id, v = state.data[id] == null ? '' : state.data[id], err = state.errs[id] || '';
+  const na = isNA(f), req = isReq(f) && !na;
+  const star = req ? '<span class="req" aria-hidden="true">*</span>' : '';
+  const cls = 'field' + (f.full ? ' full' : '') + (err ? ' invalid' : '') + (f.type === 'check' ? ' checkbox-field' : '');
+  const desc = `aria-describedby="h_${id} e_${id}"${err ? ' aria-invalid="true"' : ''}`;
+  const tail = `<div class="hint" id="h_${id}">${esc(f.hint || '')}</div><div class="err" id="e_${id}">${esc(err)}</div>`;
+  const rq = req ? ' aria-required="true"' : '';
+  let body = '';
+  switch (f.type) {
+    case 'select':
+      body = `<label for="f_${id}">${esc(f.label)}${star}</label><select id="f_${id}" data-f="${id}" ${desc}${rq}${na ? ' disabled' : ''}>
+        <option value="">${na ? 'Not Applicable' : 'Select…'}</option>${f.opts.map(o => `<option${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+      break;
+    case 'radio':
+      body = `<div class="lbl" id="l_${id}">${esc(f.label)}${star}</div><div class="choice-row" role="radiogroup" aria-labelledby="l_${id}" ${desc}>
+        ${f.opts.map((o, i) => `<label class="choice"><input type="radio" name="${id}" id="${i ? 'f_' + id + '_' + i : 'f_' + id}" data-f="${id}" value="${esc(o)}"${o === v ? ' checked' : ''}>${esc(o)}</label>`).join('')}</div>`;
+      break;
+    case 'textarea':
+      body = `<label for="f_${id}">${esc(f.label)}${star}</label><textarea id="f_${id}" data-f="${id}" rows="3" placeholder="${esc(f.ph || '')}" ${desc}>${esc(v)}</textarea>`;
+      break;
+    case 'tags': {
+      const arr = Array.isArray(v) ? v : [];
+      body = `<label for="f_${id}">${esc(f.label)}</label><div class="tags" data-tags="${id}">
+        ${arr.map((t, i) => `<span class="tag">${esc(t)}<button type="button" data-rm="${i}" aria-label="Remove ${esc(t)}">×</button></span>`).join('')}
+        <input type="text" id="f_${id}" list="dl_${id}" data-taginput="${id}" placeholder="Add a skill and press Enter" ${desc}></div>
+        <datalist id="dl_${id}">${SKILL_SUGGEST.map(s => `<option value="${esc(s)}">`).join('')}</datalist>`;
+      break;
+    }
+    case 'file':
+      body = fileHTML(f, star, err);
+      break;
+    case 'check':
+      body = `<label class="choice"><input type="checkbox" id="f_${id}" data-f="${id}" ${state.data[id] ? 'checked' : ''} ${desc} aria-required="true"><span>${esc(f.label)}<span class="req" aria-hidden="true">*</span></span></label>`;
+      break;
+    default:
+      body = `<label for="f_${id}">${esc(f.label)}${star}</label><input type="${f.type}" id="f_${id}" data-f="${id}" value="${na ? '' : esc(v)}"
+        ${f.ph || na ? `placeholder="${na ? 'Not Applicable' : esc(f.ph)}"` : ''} ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''}
+        ${f.step ? `step="${f.step}"` : ''} ${f.auto ? `autocomplete="${f.auto}"` : 'autocomplete="off"'} ${f.type === 'number' ? 'inputmode="decimal"' : ''} ${desc}${rq}${na ? ' disabled' : ''}>`;
+  }
+  return `<div class="${cls}" id="w_${id}">${body}${tail}</div>`;
+}
+
+function fileHTML(f, star, err) {
+  const r = state.resume;
+  const lost = !r && state.hadResumeInDraft ? '<div class="warn">Your resume file needs to be selected again.</div>' : '';
+  const input = `<input class="vh" type="file" id="f_resume" data-file accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" aria-describedby="h_resume e_resume">`;
+  if (r) return `<div class="lbl">${esc(f.label)}${star}</div>
+    <div class="file-chip"><div><strong>Resume: ${esc(r.name)}</strong><small>${esc(fmtSize(r.size))}</small></div>
+    <button type="button" class="btn-ghost sm" data-rmfile>Remove</button></div>${input}`;
+  return `<div class="lbl">${esc(f.label)}${star}</div><div class="upload">
+    <strong>Upload your resume</strong><div class="hint">PDF, DOC or DOCX · Max 5 MB</div>
+    ${input}<label for="f_resume" class="btn-ghost" style="cursor:pointer">Choose Resume</label></div>${lost}`;
+}
+
+function render() {
+  const s = SECTIONS[state.step];
+  let html = `<h2 class="sec-title" id="secTitle" tabindex="-1">${esc(s.title)}</h2><p class="sec-intro">${esc(s.intro)}</p><div class="sec-err" id="secErr" role="alert"></div>`;
+  if (state.step === LAST_STEP) {
+    html += reviewHTML() + `<div class="grid">${s.fields.map(fieldHTML).join('')}</div><div class="sec-err" id="subErr" role="alert"></div>`;
+  } else {
+    html += `<div class="grid">${s.fields.map(fieldHTML).join('')}</div>`;
+  }
+  $('#formArea').innerHTML = html;
+  renderStepper(); renderActions();
+}
+function renderStepper() {
+  const n = state.step + 1, pct = Math.round(n / STEP_NAMES.length * 100);
+  $('#stepLabel').textContent = `Step ${n} of ${STEP_NAMES.length} · ${pct}%`;
+  $('#progressBar').style.width = pct + '%';
+  $('#stepper').innerHTML = STEP_NAMES.map((nm, i) => {
+    const cls = i === state.step ? 'current' : (i < state.step || i < state.maxStep ? 'done' : '');
+    return `<li><button type="button" class="st ${cls}" data-go="${i}" ${i > state.maxStep ? 'disabled' : ''} ${i === state.step ? 'aria-current="step"' : ''}>
+      <span class="dot">${cls === 'done' ? '✓' : i + 1}</span><span class="st-l">${esc(nm)}</span></button></li>`;
+  }).join('');
+  const cur = $('.st.current'); if (cur && cur.scrollIntoView) cur.scrollIntoView({ inline: 'center', block: 'nearest' });
+}
+function renderActions() {
+  const last = state.step === LAST_STEP;
+  $('#actions').innerHTML = `<button type="button" class="btn-ghost" id="btnBack" ${state.step === 0 || state.submitting ? 'disabled' : ''}>← Back</button>
+    <button type="button" class="btn-ghost" id="btnDraft">Save Draft</button><span class="spacer"></span>
+    ${last ? `<button type="button" class="btn-primary" id="btnSubmit" ${state.submitting ? 'disabled' : ''}>${state.submitting ? 'Submitting application...' : 'Submit Application'}</button>`
+           : '<button type="button" class="btn-primary" id="btnNext">Next →</button>'}`;
+}
+function goTo(i, focusTitle = true) {
+  state.step = i; state.maxStep = Math.max(state.maxStep, i);
+  render(); saveDraft();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (focusTitle) $('#secTitle').focus({ preventScroll: true });
+}
+function focusFirstInvalid() {
+  const f = SECTIONS[state.step].fields.find(x => state.errs[x.id]);
+  if (!f) return;
+  const el = $('#f_' + f.id) || $(`[name="${f.id}"]`);
+  if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.focus({ preventScroll: true }); }
+}
+function next() {
+  const errs = validateStep(state.step); applyErrors(errs, state.step);
+  if (Object.keys(errs).length) {
+    render(); $('#secErr').textContent = 'Please correct the highlighted fields to continue.'; focusFirstInvalid(); return;
+  }
+  goTo(state.step + 1);
+}
+
+/* ---- Events (delegated) ---- */
+const area = $('#formArea');
+function setFieldError(id) {
+  const f = fieldMap[id]; if (!f) return;
+  const e = validateField(f);
+  if (e) state.errs[id] = e; else delete state.errs[id];
+  const w = $('#w_' + id), box = $('#e_' + id);
+  if (w && box) { w.classList.toggle('invalid', !!e); box.textContent = e; const c = $('#f_' + id); if (c) e ? c.setAttribute('aria-invalid', 'true') : c.removeAttribute('aria-invalid'); }
+}
+area.addEventListener('input', e => {
+  const t = e.target, id = t.dataset.f; if (!id || t.type === 'radio' || t.tagName === 'SELECT' || t.type === 'checkbox') return;
+  state.data[id] = t.value;
+  if (state.errs[id]) setFieldError(id);
+  saveDraftSoon();
+});
+area.addEventListener('change', e => {
+  const t = e.target;
+  if (t.matches('[data-file]')) return handleFile(t.files && t.files[0]);
+  const id = t.dataset.f; if (!id) return;
+  if (t.type === 'checkbox') { state.data[id] = t.checked; setFieldError(id); return saveDraft(); }
+  if (t.type === 'radio' || t.tagName === 'SELECT') {
+    state.data[id] = t.value;
+    if (id === 'expType') {
+      if (t.value === 'Fresher') { ['prevCompany', 'prevRole', 'prevCtc', 'lastWorking'].forEach(k => delete state.data[k]); state.data.empStatus = 'Fresher'; delete state.data.notice; }
+      else if (state.data.empStatus === 'Fresher') state.data.empStatus = '';
+    }
+    if (id === 'empStatus' && !working(state.data)) delete state.data.notice;
+    if (id === 'passout' && t.value !== 'Other') delete state.data.passoutOther;
+    if (id === 'role' && t.value !== 'Other') delete state.data.roleOther;
+    if (id === 'heard' && t.value !== 'Employee Referral') delete state.data.refName;
+    // clear errors for dependent fields hidden by this change
+    Object.keys(state.errs).forEach(k => { if (fieldMap[k] && (!isVisible(fieldMap[k]) || isNA(fieldMap[k]))) delete state.errs[k]; });
+    if (state.errs[id]) delete state.errs[id];
+    render(); const el = $('#f_' + id) || $(`[name="${id}"]:checked`); if (el) el.focus({ preventScroll: true });
+    saveDraft();
+  }
+});
+area.addEventListener('focusout', e => {
+  const t = e.target;
+  if (t.matches('[data-taginput]')) { addTag(t.dataset.taginput, t.value); t.value = ''; return; }
+  if (t.dataset && t.dataset.f && t.type !== 'radio' && t.type !== 'checkbox') setFieldError(t.dataset.f);
+});
+area.addEventListener('keydown', e => {
+  const t = e.target;
+  if (t.matches('[data-taginput]')) {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(t.dataset.taginput, t.value); }
+    else if (e.key === 'Backspace' && !t.value) { const a = state.data[t.dataset.taginput]; if (a && a.length) { a.pop(); refreshTags(t.dataset.taginput); } }
+  } else if (e.key === 'Enter' && t.tagName === 'INPUT' && t.type !== 'checkbox' && t.type !== 'radio') { e.preventDefault(); }
+});
+area.addEventListener('click', e => {
+  const t = e.target.closest('button, .tags'); if (!t) return;
+  if (t.hasAttribute('data-rm')) { const id = t.closest('[data-tags]').dataset.tags; state.data[id].splice(+t.dataset.rm, 1); refreshTags(id); }
+  else if (t.hasAttribute('data-rmfile')) { state.resume = null; state.hadResumeInDraft = false; render(); $('#f_resume').focus(); }
+  else if (t.hasAttribute('data-edit')) goTo(+t.dataset.edit);
+  else if (t.matches('[data-tags]')) { const i = t.querySelector('input'); if (i) i.focus(); }
+});
+
+/* ---- Skill tags ---- */
+function addTag(id, raw) {
+  const v = raw.trim().replace(/,+$/, ''); if (!v) return;
+  if (!Array.isArray(state.data[id])) state.data[id] = [];
+  if (v.length > 40) return toast('Skill name is too long.');
+  if (!state.data[id].some(x => x.toLowerCase() === v.toLowerCase())) state.data[id].push(v);
+  refreshTags(id);
+}
+function refreshTags(id) {
+  const box = $(`[data-tags="${id}"]`); if (!box) return;
+  const input = box.querySelector('input'); input.value = '';
+  box.querySelectorAll('.tag').forEach(n => n.remove());
+  (state.data[id] || []).forEach((t, i) => {
+    const s = document.createElement('span'); s.className = 'tag'; s.textContent = t;
+    const b = document.createElement('button'); b.type = 'button'; b.dataset.rm = i; b.setAttribute('aria-label', 'Remove ' + t); b.textContent = '×';
+    s.appendChild(b); box.insertBefore(s, input);
+  });
+  input.focus(); saveDraft();
+}
+
+/* =====================================================================
+   FILE HANDLING
+   ===================================================================== */
+function handleFile(file) {
+  if (!file) return;
+  const err = validateFile(file);
+  if (err) { state.resume = null; state.errs.resume = err; render(); $('#f_resume').focus(); return; }
+  state.resume = file; state.hadResumeInDraft = false; delete state.errs.resume; render(); toast('Resume attached');
+  const b = $('[data-rmfile]'); if (b) b.focus();
+}
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.onerror = () => reject(new Error('Could not read resume file.'));
+    r.readAsDataURL(file);
+  });
+}
+
+/* =====================================================================
+   LOCAL STORAGE (draft – resume binary is never stored)
+   ===================================================================== */
+function saveDraft(showToast) {
+  try {
+    localStorage.setItem(CONFIG.DRAFT_KEY, JSON.stringify({
+      data: state.data, step: state.step, maxStep: state.maxStep, savedAt: Date.now(),
+      hadResume: !!state.resume || state.hadResumeInDraft, clientRef: state.clientRef
+    }));
+    if (showToast) toast('Draft saved on this device');
+  } catch { if (showToast) toast('Could not save draft (storage unavailable)'); }
+}
+let _t; const saveDraftSoon = () => { clearTimeout(_t); _t = setTimeout(saveDraft, 400); };
+const clearDraft = () => { try { localStorage.removeItem(CONFIG.DRAFT_KEY); } catch {} };
+function loadDraft() {
+  try { const d = JSON.parse(localStorage.getItem(CONFIG.DRAFT_KEY) || 'null'); return d && d.data ? d : null; } catch { return null; }
+}
+function resetAll() {
+  state.step = 0; state.maxStep = 0; state.data = {}; state.errs = {}; state.resume = null;
+  state.hadResumeInDraft = false; state.submitting = false; state.clientRef = genClientRef();
+}
+
+/* =====================================================================
+   REVIEW
+   ===================================================================== */
+const REVIEW = [
+  { title: 'Candidate Information', step: 0, rows: [['Candidate Name', 'name'], ['Email', 'email'], ['Phone', 'phone'], ['Location', d => [d.city, d.state, d.country].filter(Boolean).join(', ')],
+    ['Passout Year', d => d.passout === 'Other' ? d.passoutOther : d.passout], ['Qualification', 'qualification'], ['College / University', 'college'], ['LinkedIn', 'linkedin'], ['GitHub / Portfolio', 'github']] },
+  { title: 'Professional Information', step: 1, rows: [['Experience Type', 'expType'], ['Previous Company', 'prevCompany'], ['Previous Role', 'prevRole'],
+    ['Previous CTC (₹ LPA)', 'prevCtc'], ['Expected CTC (₹ LPA)', 'expectedCtc'], ['Total Experience (years)', 'totalExp'], ['Employment Status', 'empStatus'],
+    ['Notice Period', 'notice'], ['Last / Expected Last Working Date', 'lastWorking'], ['Available to Join', 'available']] },
+  { title: 'Application Details', step: 2, rows: [['Applying For', d => d.role === 'Other' ? d.roleOther : d.role], ['Department', 'dept'], ['Preferred Location', 'prefLoc'],
+    ['Work Preference', 'workPref'], ['Willing to Relocate', 'relocate'], ['Relevant Experience (years)', 'relExp'], ['Skills', d => (d.skills || []).join(', ')],
+    ['Additional Skills', 'addSkills'], ['Heard About Us', 'heard'], ['Referral Name', 'refName'], ['Comments', 'comments']] },
+  { title: 'Resume & Links', step: 3, rows: [['Resume', () => state.resume ? state.resume.name : ''], ['Resume Size', () => state.resume ? fmtSize(state.resume.size) : ''],
+    ['Portfolio', 'portfolio'], ['Additional URL', 'extraUrl'], ['Cover Note', 'cover']] }
+];
+function reviewHTML() {
+  const d = state.data;
+  return REVIEW.map(sec => `<section class="rv-sec" aria-label="${esc(sec.title)}"><div class="rv-head"><h3>${esc(sec.title)}</h3>
+    <button type="button" class="btn-ghost sm" data-edit="${sec.step}" aria-label="Edit ${esc(sec.title)}">Edit</button></div>
+    <dl class="rv">${sec.rows.map(([l, k]) => {
+      const v = typeof k === 'function' ? k(d) : d[k]; const t = v == null || v === '' ? '—' : v;
+      return `<dt>${esc(l)}</dt><dd>${esc(t)}</dd>`; }).join('')}</dl></section>`).join('') +
+    `<h3 style="color:var(--navy);margin:22px 0 0">Consent</h3>`;
+}
+
+/* =====================================================================
+   SUBMISSION
+   ===================================================================== */
+function buildPayload() {
+  const d = state.data, u = k => d[k] ? normUrl(String(d[k]).trim()) : '';
+  const t = k => (d[k] == null ? '' : String(d[k]).trim());
+  return {
+    clientRef: state.clientRef, submittedAtClient: new Date().toISOString(),
+    name: t('name'), email: t('email'), phone: t('phone'), city: t('city'), state: t('state'), country: t('country'),
+    passoutYear: d.passout === 'Other' ? t('passoutOther') : t('passout'), qualification: t('qualification'), college: t('college'),
+    expType: t('expType'), prevCompany: t('prevCompany'), prevRole: t('prevRole'), prevCtc: t('prevCtc'), expectedCtc: t('expectedCtc'),
+    totalExp: t('totalExp'), empStatus: t('empStatus'), notice: t('notice'), lastWorking: t('lastWorking'), available: t('available'),
+    role: d.role === 'Other' ? t('roleOther') : t('role'), roleCategory: d.role === 'Other' ? 'Other' : t('role'),
+    dept: t('dept'), workPref: t('workPref'), prefLoc: t('prefLoc'), relocate: t('relocate'), relExp: t('relExp'),
+    skills: (d.skills || []).join(', '), addSkills: t('addSkills'),
+    linkedin: u('linkedin'), github: u('github'), portfolio: u('portfolio'), extraUrl: u('extraUrl'),
+    cover: t('cover'), heard: t('heard'), refName: t('refName'), comments: t('comments'),
+    consent: !!(d.consent1 && d.consent2)
+  };
+}
+function showSubError(msg) { const b = $('#subErr'); if (b) { b.textContent = msg; b.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }
+
+async function submitForm() {
+  if (state.submitting) return;                          // duplicate-submit guard
+  // validate every step
+  for (let i = 0; i < SECTIONS.length; i++) {
+    const errs = validateStep(i); applyErrors(errs, i);
+    if (Object.keys(errs).length) {
+      state.step = i; render(); $('#secErr').textContent = 'Please correct the highlighted fields before submitting.'; focusFirstInvalid(); return;
+    }
+  }
+  if (!CONFIG.CAREER_API_URL) {
+    return showSubError('Submission service is not configured.');
+  }
+  state.submitting = true; renderActions(); $('#subErr').textContent = '';
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), CONFIG.SUBMIT_TIMEOUT_MS);
+  try {
+    const payload = buildPayload();
+    payload.resume = { name: state.resume.name, mimeType: state.resume.type || '', size: state.resume.size, base64: await fileToBase64(state.resume) };
+    const res = await fetch(CONFIG.CAREER_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal
+    });
+    const json = await res.json();
+    if (!json || !json.success || !json.applicationId) throw new Error((json && json.message) || 'Submission failed');
+    showConfirmation(json.applicationId, payload);
+  } catch (err) {
+    state.submitting = false; renderActions();
+    showSubError('We could not submit your application. Please try again.');   // form data is kept for retry
+  } finally { clearTimeout(timer); }
+}
+
+/* =====================================================================
+   CONFIRMATION
+   ===================================================================== */
+function showConfirmation(appId, p) {
+  clearDraft(); state.submitting = false;
+  $('#stepperWrap').hidden = true; $('#actions').hidden = true; $('#welcome').hidden = true;
+  $('#formArea').innerHTML = `<div class="confirm"><div class="big-check" aria-hidden="true">✓</div>
+    <h2 id="secTitle" tabindex="-1">Application Submitted Successfully</h2>
+    <p>Thank you for applying to TCAI. Your application has been received.</p>
+    <div class="refbox"><span>Application ID</span><strong>${esc(appId)}</strong></div>
+    <dl class="rv"><dt>Role Applied For</dt><dd>${esc(p.role)}</dd><dt>Candidate</dt><dd>${esc(p.name)}</dd><dt>Email</dt><dd>${esc(p.email)}</dd></dl>
+    <p class="muted">Please keep your Application ID for future reference.</p>
+    <div class="btn-row" style="margin-top:16px"><button type="button" class="btn-primary" id="btnNew">Start New Application</button></div></div>`;
+  window.scrollTo({ top: 0, behavior: 'smooth' }); $('#secTitle').focus({ preventScroll: true });
+  $('#btnNew').onclick = () => { resetAll(); $('#stepperWrap').hidden = false; $('#actions').hidden = false; $('#welcome').hidden = false; render(); window.scrollTo(0, 0); };
+}
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+$('#stepper').addEventListener('click', e => {
+  const b = e.target.closest('[data-go]'); if (!b || state.submitting) return;
+  const i = +b.dataset.go; if (i <= state.maxStep) goTo(i);
+});
+$('#actions').addEventListener('click', e => {
+  const id = e.target.id;
+  if (id === 'btnNext') next();
+  else if (id === 'btnBack' && state.step > 0) goTo(state.step - 1);
+  else if (id === 'btnDraft') saveDraft(true);
+  else if (id === 'btnSubmit') submitForm();
+});
+window.addEventListener('beforeunload', () => { if (!$('#actions').hidden) saveDraft(); });
+
+(function init() {
+  state.clientRef = genClientRef();
+  const draft = loadDraft();
+  render();
+  if (!draft) return;
+  const m = $('#resumeModal');
+  $('#rmText').textContent = 'We found an application you started on ' + new Date(draft.savedAt).toLocaleString() + '.';
+  $('#rmFile').hidden = !draft.hadResume;
+  m.hidden = false; $('#rmYes').focus();
+  $('#rmYes').onclick = () => {
+    state.data = draft.data; state.maxStep = Math.min(draft.maxStep || 0, LAST_STEP); state.hadResumeInDraft = !!draft.hadResume;
+    if (draft.clientRef) state.clientRef = draft.clientRef;
+    m.hidden = true; goTo(Math.min(draft.step || 0, LAST_STEP), false);
+  };
+  $('#rmNo').onclick = () => { clearDraft(); m.hidden = true; };
+})();
+</script>
+
+<!--
+==========================================================================
+ GOOGLE APPS SCRIPT BACKEND  (copy into script.google.com → Code.gs)
+==========================================================================
+ SETUP
+ 1. Create a Google Sheet (e.g. "TCAI Career Applications"). Copy its ID from the URL.
+ 2. In that sheet: Extensions → Apps Script. Paste the code below into Code.gs.
+ 3. Set SHEET_ID below. Deploy → New deployment → type "Web app":
+      Execute as: Me      Who has access: Anyone
+ 4. Copy the /exec URL into CONFIG.APPS_SCRIPT_URL in this HTML file.
+ 5. Re-deploy (new version) after every script change.
+
+ REQUEST: the page POSTs JSON (Content-Type text/plain to avoid CORS preflight):
+   { name, email, phone, ..., resume: { name, mimeType, size, base64 } }
+ Base64 of a 5 MB file is about 6.7 MB – well within Apps Script's POST limit,
+ but allow a few seconds on slow connections.
+
+ SHEET COLUMNS (row 1, created automatically if the sheet is empty):
+   Application ID | Submitted At | Candidate Name | Email | Phone | Location | State |
+   Country | Passout Year | Highest Qualification | College / University | Experience Type |
+   Previous Company | Previous Role | Previous CTC | Expected CTC | Total Experience |
+   Current Employment Status | Notice Period | Last Working Date | Available To Join |
+   Applying For | Department | Work Preference | Preferred Location | Willing To Relocate |
+   Relevant Experience | Skills | Additional Skills | LinkedIn | GitHub | Portfolio |
+   Cover Note | Referral Source | Referral Name | Resume Name | Resume Drive URL |
+   Status | Recruiter Remarks | Updated At
+
+ DRIVE LAYOUT: Recruitment / Candidate Resumes / <YYYY> / <Role folder> /
+   <ApplicationID>_<Candidate_Name>_Resume.<ext>
+ Files stay private to the script owner (no public sharing). The Drive URL is
+ stored in the sheet only and is never returned to the candidate.
+
+ ---------------------------- Code.gs ------------------------------------
+
+ var SHEET_ID = 'PASTE_YOUR_SHEET_ID';
+ var SHEET_NAME = 'Applications';
+ var ROOT_FOLDER = 'Recruitment';
+ var SUB_FOLDER = 'Candidate Resumes';
+ var MAX_BYTES = 5 * 1024 * 1024;
+ var ROLE_FOLDERS = ['AI Engineer', 'Generative AI Engineer', 'Machine Learning Engineer', 'Data Scientist',
+   'Data Analyst', 'Data Engineer', 'MLOps Engineer', 'Backend Developer', 'Software Engineer', 'AI/ML Intern'];
+ var HEADERS = ['Application ID','Submitted At','Candidate Name','Email','Phone','Location','State','Country',
+   'Passout Year','Highest Qualification','College / University','Experience Type','Previous Company',
+   'Previous Role','Previous CTC','Expected CTC','Total Experience','Current Employment Status','Notice Period',
+   'Last Working Date','Available To Join','Applying For','Department','Work Preference','Preferred Location',
+   'Willing To Relocate','Relevant Experience','Skills','Additional Skills','LinkedIn','GitHub','Portfolio',
+   'Cover Note','Referral Source','Referral Name','Resume Name','Resume Drive URL','Status','Recruiter Remarks','Updated At'];
+
+ function doPost(e) {
+   var lock = LockService.getScriptLock();
+   try {
+     lock.waitLock(30000);
+     var p = JSON.parse(e.postData.contents);
+     var err = validate_(p);
+     if (err) return json_({ success: false, message: err });
+
+     var appId = nextId_();
+     var ext = p.resume.name.split('.').pop().toLowerCase();
+     var safeName = p.name.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+     var fileName = appId + '_' + safeName + '_Resume.' + ext;
+     var blob = Utilities.newBlob(Utilities.base64Decode(p.resume.base64), mime_(ext), fileName);
+     if (blob.getBytes().length > MAX_BYTES) return json_({ success: false, message: 'Resume too large.' });
+
+     var file = folderFor_(p.roleCategory).createFile(blob);
+     var now = new Date();
+     var sheet = sheet_();
+     sheet.appendRow([
+       appId, now, p.name, p.email, p.phone, p.city, p.state, p.country, p.passoutYear, p.qualification,
+       p.college, p.expType, p.prevCompany, p.prevRole, p.prevCtc, p.expectedCtc, p.totalExp, p.empStatus,
+       p.notice, p.lastWorking, p.available, p.role, p.dept, p.workPref, p.prefLoc, p.relocate, p.relExp,
+       p.skills, p.addSkills, p.linkedin, p.github,
+       [p.portfolio, p.extraUrl].filter(String).join(' | '),
+       p.cover, p.heard, p.refName, fileName, file.getUrl(), 'New', '', now
+     ].map(safe_));
+     return json_({ success: true, applicationId: appId, message: 'Application submitted successfully.' });
+   } catch (ex) {
+     console.error(ex);
+     return json_({ success: false, message: 'Unable to submit application.' });
+   } finally {
+     try { lock.releaseLock(); } catch (x) {}
+   }
+ }
+
+ function validate_(p) {
+   var req = ['name','email','phone','city','passoutYear','qualification','college','expType','expectedCtc','role'];
+   for (var i = 0; i < req.length; i++) if (!p[req[i]]) return 'Missing field: ' + req[i];
+   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(p.email)) return 'Invalid email.';
+   if (!p.consent) return 'Consent is required.';
+   if (!p.resume || !p.resume.base64 || !p.resume.name) return 'Resume is required.';
+   if (['pdf','doc','docx'].indexOf(p.resume.name.split('.').pop().toLowerCase()) < 0) return 'Invalid resume type.';
+   return '';
+ }
+ function nextId_() {            // TCAI-CAR-YYYYMMDD-0001 (sequence resets daily)
+   var day = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd');
+   var props = PropertiesService.getScriptProperties(), key = 'seq_' + day;
+   var n = Number(props.getProperty(key) || 0) + 1;
+   props.setProperty(key, String(n));
+   return 'TCAI-CAR-' + day + '-' + ('0000' + n).slice(-4);
+ }
+ function sheet_() {
+   var ss = SpreadsheetApp.openById(SHEET_ID);
+   var sh = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
+   if (sh.getLastRow() === 0) { sh.appendRow(HEADERS); sh.setFrozenRows(1); }
+   return sh;
+ }
+ function folderFor_(role) {
+   var year = String(new Date().getFullYear());
+   var f = child_(child_(child_(DriveApp.getRootFolder(), ROOT_FOLDER), SUB_FOLDER), year);
+   return child_(f, ROLE_FOLDERS.indexOf(role) >= 0 ? role.replace('/', '-') : 'Other');
+ }
+ function child_(parent, name) {
+   var it = parent.getFoldersByName(name);
+   return it.hasNext() ? it.next() : parent.createFolder(name);
+ }
+ function mime_(ext) {
+   return { pdf: 'application/pdf', doc: 'application/msword',
+     docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }[ext];
+ }
+ function safe_(v) {             // block spreadsheet formula injection
+   return (typeof v === 'string' && /^[=+\-@]/.test(v)) ? "'" + v : v;
+ }
+ function json_(o) {
+   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+ }
+==========================================================================
+-->
+</body>
+</html>

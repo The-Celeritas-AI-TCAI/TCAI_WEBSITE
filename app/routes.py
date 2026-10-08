@@ -7,6 +7,7 @@ import os
 import requests
 import base64
 
+
 main_bp = Blueprint('main', __name__)
 
 
@@ -14,6 +15,7 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/home')
 def home():
     current_year = datetime.now().year
+
     return render_template(
         'index.html',
         current_year=current_year,
@@ -24,6 +26,7 @@ def home():
 @main_bp.route('/about')
 def about():
     current_year = datetime.now().year
+
     return render_template(
         'about.html',
         user=current_user,
@@ -31,10 +34,123 @@ def about():
     )
 
 
+# ============================================================
+# CAREERS
+# ============================================================
+
+@main_bp.route('/careers')
+def careers():
+    return render_template(
+        'tcai_career_application.html'
+    )
+
+
+@main_bp.route('/api/career', methods=['POST'])
+def career_application():
+    try:
+        # Get JSON submitted by the career application page
+        data = request.get_json(silent=True)
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid application data.'
+            }), 400
+
+        # Career Apps Script configuration
+        apps_script_url = os.getenv(
+            'TCAI_CAREER_APPS_SCRIPT_URL'
+        )
+
+        api_key = os.getenv(
+            'TCAI_CAREER_API_KEY'
+        )
+
+        if not apps_script_url:
+            return jsonify({
+                'success': False,
+                'message': 'Career Apps Script URL is not configured.'
+            }), 500
+
+        if not api_key:
+            return jsonify({
+                'success': False,
+                'message': 'Career Apps Script API key is not configured.'
+            }), 500
+
+        # Add the private API key server-side.
+        # It is NOT exposed to the browser.
+        data['apiKey'] = api_key
+
+        # Send application to Google Apps Script
+        response = requests.post(
+            apps_script_url,
+            json=data,
+            timeout=120
+        )
+
+        # Try to read Apps Script JSON response
+        try:
+            result = response.json()
+        except ValueError:
+            print(
+                'Career Apps Script returned non-JSON response:',
+                response.status_code,
+                response.text[:1000]
+            )
+
+            return jsonify({
+                'success': False,
+                'message': 'Invalid response from application service.'
+            }), 502
+
+        # Apps Script returned an HTTP error
+        if not response.ok:
+            return jsonify({
+                'success': False,
+                'message': result.get(
+                    'message',
+                    'Application submission failed.'
+                )
+            }), 502
+
+        # Return Apps Script result to browser
+        return jsonify(result), 200
+
+    except requests.RequestException as e:
+        print(
+            'Career Apps Script connection error:',
+            e
+        )
+
+        return jsonify({
+            'success': False,
+            'message': 'Unable to connect to the application service.'
+        }), 502
+
+    except Exception as e:
+        print(
+            'Career application error:',
+            e
+        )
+
+        return jsonify({
+            'success': False,
+            'message': 'Unable to process application.'
+        }), 500
+
+
+# ============================================================
+# ONBOARDING
+# ============================================================
+
 @main_bp.route('/onboarding')
 @login_required
 def onboarding():
-    return render_template('onboarding.html', user=current_user)
+    return render_template(
+        'onboarding.html',
+        user=current_user
+    )
 
 
 @main_bp.route('/api/onboarding', methods=['POST'])
@@ -62,10 +178,13 @@ def submit_onboarding():
 
         submitted_at = now.isoformat()
 
-        # Candidate information sent by the onboarding form
-        candidate = data.get('candidate', {})
+        # Candidate information sent by onboarding form
+        candidate = data.get(
+            'candidate',
+            {}
+        )
 
-        # Make sure the logged-in employee email is available
+        # Make sure logged-in employee email is available
         if not candidate.get('email'):
             candidate['email'] = current_user.email
 
@@ -74,7 +193,10 @@ def submit_onboarding():
 
         for field_name, uploaded_file in request.files.items():
 
-            if not uploaded_file or not uploaded_file.filename:
+            if (
+                not uploaded_file
+                or not uploaded_file.filename
+            ):
                 continue
 
             # Read file
@@ -92,7 +214,7 @@ def submit_onboarding():
                 'base64': file_base64
             }
 
-        # Get Apps Script configuration from .env
+        # Get onboarding Apps Script configuration
         apps_script_url = os.getenv(
             'TCAI_ONBOARDING_APPS_SCRIPT_URL'
         )
@@ -131,17 +253,19 @@ def submit_onboarding():
 
         # Try to read Apps Script response
         try:
-            apps_script_result = apps_script_response.json()
+            apps_script_result = (
+                apps_script_response.json()
+            )
         except Exception:
             apps_script_result = {}
 
-        # Apps Script rejected the submission
+        # Apps Script rejected submission
         if (
             apps_script_response.status_code != 200
             or not apps_script_result.get('success')
         ):
             print(
-                "Apps Script error:",
+                'Apps Script error:',
                 apps_script_response.status_code,
                 apps_script_response.text
             )
@@ -169,7 +293,10 @@ def submit_onboarding():
         }), 400
 
     except requests.RequestException as e:
-        print("Apps Script connection error:", e)
+        print(
+            'Apps Script connection error:',
+            e
+        )
 
         return jsonify({
             'success': False,
@@ -177,7 +304,10 @@ def submit_onboarding():
         }), 502
 
     except Exception as e:
-        print("Onboarding submission error:", e)
+        print(
+            'Onboarding submission error:',
+            e
+        )
 
         return jsonify({
             'success': False,
